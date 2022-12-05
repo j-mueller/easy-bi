@@ -1,0 +1,64 @@
+cabal-version:       2.2
+name:                easy-bi-vis
+version:             0.1.0.0
+synopsis:            Visualisation with HVega
+license-file: LICENSE
+license: Apache-2.0
+author: Jann Müller <j-mueller@users.noreply.github.com>
+maintainer: Jann Müller <j-mueller@users.noreply.github.com>
+copyright: (c) 2019-2020 Avatar Engines
+build-type:          Simple
+
+common lang
+    default-language: Haskell2010
+    default-extensions: ExplicitForAll ScopedTypeVariables
+                        DeriveGeneric StandaloneDeriving DeriveLift
+                        GeneralizedNewtypeDeriving DeriveFunctor DeriveFoldable
+                        DeriveTraversable
+    other-extensions: DeriveAnyClass FlexibleContexts FlexibleInstances
+                      MultiParamTypeClasses TypeFamilies OverloadedStrings
+                      MonadComprehensions ConstrainedClassMethods TupleSections GADTs
+                      RankNTypes TemplateHaskell QuasiQuotes TypeApplications
+                      ExistentialQuantification
+    ghc-options: -Wall -Wnoncanonical-monad-instances
+                 -Wincomplete-uni-patterns -Wincomplete-record-updates
+                 -Wredundant-constraints -Widentities
+
+library
+  import: lang
+  hs-source-dirs:
+    lib
+  exposed-modules:
+    EasyBI.Vis.Rules
+    EasyBI.Vis.Types
+    EasyBI.Vis.Utils
+
+  build-depends:
+    base >=4.16.4 && <4.17
+    , array -any
+    , lens -any
+    , unordered-containers -any
+    , containers -any
+    , vector-space -any
+    , semigroups -any
+    , text -any
+    , hvega -any
+    , aeson -any
+    , logict -any
+    , mtl -any
+
+  ghc-options: -O2
+
+test-suite easy-bi-vis-test
+  import: lang
+  type: exitcode-stdio-1.0
+  hs-source-dirs:     test
+  ghc-options: -threaded -rtsopts
+  main-is: Spec.hs
+  build-depends:
+    base >=4.16.4 && <4.17,
+    text,
+    lens,
+    tasty,
+    tasty-hunit,
+    easy-bi-vis

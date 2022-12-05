@@ -1,0 +1,5 @@
+index-state: 2022-12-02T00:00:00Z
+with-compiler: ghc-9.2.5
+
+packages:
+  src/vis
