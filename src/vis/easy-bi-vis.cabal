@@ -29,6 +29,7 @@ library
   hs-source-dirs:
     lib
   exposed-modules:
+    EasyBI.Vis.HVega
     EasyBI.Vis.Rules
     EasyBI.Vis.Types
     EasyBI.Vis.Utils
