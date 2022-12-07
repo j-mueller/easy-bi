@@ -30,8 +30,23 @@ library
     lib
   exposed-modules:
     EasyBI.Sql.Syntax
+    EasyBI.Sql.Types
 
   build-depends:
     base >=4.16.4 && <4.17
     , recursion-schemes
     , simple-sql-parser >= 0.6.1
+    , mtl
+
+test-suite easy-bi-sql-test
+  import: lang
+  type: exitcode-stdio-1.0
+  hs-source-dirs:     test
+  ghc-options: -threaded -rtsopts
+  main-is: Spec.hs
+  build-depends:
+    base >=4.16.4 && <4.17,
+    simple-sql-parser >= 0.6.1,
+    tasty,
+    tasty-hunit,
+    easy-bi-sql
