@@ -3,3 +3,9 @@ with-compiler: ghc-9.2.5
 
 packages:
   src/vis
+  src/sql
+
+source-repository-package
+  type: git
+  location: https://github.com/JakeWheat/simple-sql-parser
+  tag: a937424514e1e6576539f7d01a99e9030169162d

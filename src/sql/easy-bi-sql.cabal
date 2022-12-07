@@ -1,7 +1,7 @@
 cabal-version:       2.2
-name:                easy-bi-vis
+name:                easy-bi-sql
 version:             0.1.0.0
-synopsis:            Visualisation with HVega
+synopsis:            SQL parsing
 license-file: LICENSE
 license: Apache-2.0
 author: Jann Müller <j-mueller@users.noreply.github.com>
@@ -29,25 +29,9 @@ library
   hs-source-dirs:
     lib
   exposed-modules:
-    EasyBI.Vis.HVega
-    EasyBI.Vis.Rules
-    EasyBI.Vis.Types
-    EasyBI.Vis.Utils
+    EasyBI.Sql.Syntax
 
   build-depends:
     base >=4.16.4 && <4.17
-
-
-test-suite easy-bi-vis-test
-  import: lang
-  type: exitcode-stdio-1.0
-  hs-source-dirs:     test
-  ghc-options: -threaded -rtsopts
-  main-is: Spec.hs
-  build-depends:
-    base >=4.16.4 && <4.17,
-    text,
-    lens,
-    tasty,
-    tasty-hunit,
-    easy-bi-vis
+    , recursion-schemes
+    , simple-sql-parser >= 0.6.1
