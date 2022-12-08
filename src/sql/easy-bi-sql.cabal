@@ -37,6 +37,7 @@ library
     , recursion-schemes
     , simple-sql-parser >= 0.6.1
     , mtl
+    , containers
 
 test-suite easy-bi-sql-test
   import: lang

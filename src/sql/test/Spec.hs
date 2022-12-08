@@ -5,8 +5,8 @@
 module Main(main) where
 
 import           EasyBI.Sql.Types               (AnnotateErr, SqlType (..),
-                                                 SqlVar (..),
-                                                 TyVar (..), typeConstraints)
+                                                 SqlVar (..), TyVar (..), apply,
+                                                 mgu, typeConstraints)
 import qualified Language.SQL.SimpleSQL.Dialect as Dialect
 import qualified Language.SQL.SimpleSQL.Parse   as Parse
 import           Language.SQL.SimpleSQL.Syntax  (Name (..), ScalarExpr)
@@ -23,6 +23,13 @@ tests = testGroup "type inference"
   [ testGroup "annotations"
       [ testCase "annotate simple expr" simpleExpr
       , testCase "annotate host param" hostParam
+      ]
+  , testGroup "unification"
+      [ testCase "mgu1" (checkUnification $ ShouldUnify STBool (STVar 0))
+      , testCase "mgu2" (checkUnification $ ShouldNotUnify STBool STNumber)
+      , testCase "mgu3" (checkUnification $ ShouldNotUnify (STVar 0) (STArr (STVar 0) (STVar 0)))
+      , testCase "mgu4" (checkUnification $ ShouldUnify (STArr STBool STBool) (STArr (STVar 0) (STVar 0)))
+      , testCase "mgu5" (checkUnification $ ShouldNotUnify (STArr STBool STNumber) (STArr (STVar 0) (STVar 0)))
       ]
   ]
 
@@ -45,3 +52,14 @@ parseExpr = either (fail . show) pure . Parse.parseScalarExpr Dialect.ansi2011 "
 
 annotateErr :: Either AnnotateErr a -> IO a
 annotateErr = either (fail . show) pure
+
+checkUnification :: Unify -> Assertion
+checkUnification = \case
+  ShouldUnify a b ->
+    maybe (fail "expectedUnification") (\subs -> assertEqual ("applying substition: " <> show subs) (apply subs a) (apply subs b)) (mgu a b)
+  ShouldNotUnify a b ->
+    maybe (pure ()) (const (fail "expected unification to fail")) (mgu a b)
+
+data Unify =
+  ShouldUnify (SqlType TyVar) (SqlType TyVar)
+  | ShouldNotUnify (SqlType TyVar) (SqlType TyVar)
