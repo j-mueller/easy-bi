@@ -29,6 +29,9 @@ library
   hs-source-dirs:
     lib
   exposed-modules:
+    EasyBI.Sql.Effects.Annotate
+    EasyBI.Sql.Effects.Fresh
+    EasyBI.Sql.Effects.Types
     EasyBI.Sql.Syntax
     EasyBI.Sql.Types
 
@@ -38,6 +41,7 @@ library
     , simple-sql-parser >= 0.6.1
     , mtl
     , containers
+    , transformers
 
 test-suite easy-bi-sql-test
   import: lang
@@ -50,4 +54,5 @@ test-suite easy-bi-sql-test
     simple-sql-parser >= 0.6.1,
     tasty,
     tasty-hunit,
-    easy-bi-sql
+    easy-bi-sql,
+    mtl

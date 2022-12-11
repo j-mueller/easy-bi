@@ -4,16 +4,22 @@
 {-# LANGUAGE TypeApplications   #-}
 module Main(main) where
 
-import           EasyBI.Sql.Types               (AnnotateErr, SqlType (..),
-                                                 SqlVar (..), TyVar (..), apply,
-                                                 mgu, typeConstraints)
+import           Control.Monad.Except           (runExcept)
+import           Data.Bifunctor                 (Bifunctor (..))
+import           Data.Foldable                  (traverse_)
+import           EasyBI.Sql.Types               (AnnotateErr, InferError (..),
+                                                 SqlType (..), SqlVar (..),
+                                                 TyVar (..),
+                                                 UnificationError (..), apply,
+                                                 defaultTypeEnv, mgu,
+                                                 runInferType, typeConstraints)
 import qualified Language.SQL.SimpleSQL.Dialect as Dialect
 import qualified Language.SQL.SimpleSQL.Parse   as Parse
 import           Language.SQL.SimpleSQL.Syntax  (Name (..), ScalarExpr)
 import           Test.Tasty                     (TestTree, defaultMain,
                                                  testGroup)
-import           Test.Tasty.HUnit               (Assertion, assertEqual,
-                                                 testCase)
+import           Test.Tasty.HUnit               (Assertion, assertBool,
+                                                 assertEqual, testCase)
 
 main :: IO ()
 main = defaultMain tests
@@ -30,6 +36,11 @@ tests = testGroup "type inference"
       , testCase "mgu3" (checkUnification $ ShouldNotUnify (STVar 0) (STArr (STVar 0) (STVar 0)))
       , testCase "mgu4" (checkUnification $ ShouldUnify (STArr STBool STBool) (STArr (STVar 0) (STVar 0)))
       , testCase "mgu5" (checkUnification $ ShouldNotUnify (STArr STBool STNumber) (STArr (STVar 0) (STVar 0)))
+      ]
+  , testGroup "inference"
+      [ testCase "i1" (checkInference $ ShouldInferSuccess [(":x", STNumber)] "1 + :x")
+      , testCase "i2" (checkInference $ ShouldInferSuccess [(":x", STNumber), (":x2", STNumber)] ":x2 + :x")
+      , testCase "i3" (checkInference $ ShouldInferFail (IUnificationError (UnificationError STBool STNumber)) ":x2 + true")
       ]
   ]
 
@@ -56,10 +67,35 @@ annotateErr = either (fail . show) pure
 checkUnification :: Unify -> Assertion
 checkUnification = \case
   ShouldUnify a b ->
-    maybe (fail "expectedUnification") (\subs -> assertEqual ("applying substition: " <> show subs) (apply subs a) (apply subs b)) (mgu a b)
+    either (fail . (<>) "expectedUnification: " . show) (\subs -> assertEqual ("applying substition: " <> show subs) (apply subs a) (apply subs b)) (runExcept (mgu a b))
   ShouldNotUnify a b ->
-    maybe (pure ()) (const (fail "expected unification to fail")) (mgu a b)
+    either (const (pure ())) (const (fail "expected unification to fail")) (runExcept (mgu a b))
 
 data Unify =
   ShouldUnify (SqlType TyVar) (SqlType TyVar)
   | ShouldNotUnify (SqlType TyVar) (SqlType TyVar)
+
+checkInference :: Infer -> Assertion
+checkInference = \case
+  ShouldInferSuccess expectedTypes expression -> do
+    expr' <- parseExpr expression
+    case runInferType defaultTypeEnv expr' of
+      Left err -> fail ("checkInference: Expected inference to succeed, but it failed with " <> show err)
+      Right (_, _, assumptions) -> do
+        let expected' = fmap (first (\nm -> AHostParameter nm Nothing)) expectedTypes
+        traverse_ (\typeAssignment -> assertBool ("expected " <> show (fst typeAssignment) <> " to have type " <> show (snd typeAssignment)) (typeAssignment `elem` assumptions)) expected'
+  ShouldInferFail err expression -> do
+    expr' <- parseExpr expression
+    case runInferType defaultTypeEnv expr' of
+      Left actual -> assertEqual "checkInference: expected error" err actual
+      Right result -> fail ("Expected type inference to fail, but it succeeded with " <> show result)
+
+
+data Infer =
+  {-| Inference should succeed, assigning the expected types to the variables
+  -}
+  ShouldInferSuccess [(String, SqlType TyVar)] String
+
+  {-| Inference should fail
+  -}
+  | ShouldInferFail InferError String

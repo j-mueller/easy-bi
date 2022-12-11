@@ -139,3 +139,5 @@ instance Recursive ScalarExpr where
     S.VEComment a b                -> VEComment a b
     S.OdbcLiteral a b              -> OdbcLiteral a b
     S.OdbcFunc a                   -> OdbcFunc a
+
+deriving instance Ord Name
