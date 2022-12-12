@@ -5,18 +5,18 @@
 module Main(main) where
 
 import           Control.Monad                  (when)
-import           Control.Monad.Except           (runExcept)
 import           Data.Bifunctor                 (Bifunctor (..))
 import           Data.Foldable                  (traverse_)
 import           EasyBI.Sql.Types               (AnnotateErr, InferError (..),
                                                  SqlType (..), SqlVar (..),
                                                  TyVar (..),
-                                                 UnificationError (..), apply,
-                                                 defaultTypeEnv, mgu,
-                                                 runInferType, typeConstraints)
+                                                 UnificationError (..),
+                                                 defaultTypeEnv, runInferType,
+                                                 typeConstraints)
 import qualified Language.SQL.SimpleSQL.Dialect as Dialect
 import qualified Language.SQL.SimpleSQL.Parse   as Parse
 import           Language.SQL.SimpleSQL.Syntax  (Name (..), ScalarExpr)
+import qualified Spec.Unification               as Unification
 import           Test.Tasty                     (TestTree, defaultMain,
                                                  testGroup)
 import           Test.Tasty.HUnit               (Assertion, assertBool,
@@ -32,13 +32,7 @@ tests = testGroup "type inference"
       [ testCase "annotate simple expr" simpleExpr
       , testCase "annotate host param" hostParam
       ]
-  , testGroup "unification"
-      [ testCase "mgu1" (checkUnification $ ShouldUnify STBool (STVar 0))
-      , testCase "mgu2" (checkUnification $ ShouldNotUnify STBool STNumber)
-      , testCase "mgu3" (checkUnification $ ShouldNotUnify (STVar 0) (STArr (STVar 0) (STVar 0)))
-      , testCase "mgu4" (checkUnification $ ShouldUnify (STArr STBool STBool) (STArr (STVar 0) (STVar 0)))
-      , testCase "mgu5" (checkUnification $ ShouldNotUnify (STArr STBool STNumber) (STArr (STVar 0) (STVar 0)))
-      ]
+  , Unification.tests
   , testGroup "inference"
       [ testCaseSteps "+ (1)" (checkInference $ ShouldInferSuccess [(":x", STNumber)] "1 + :x")
       , testCaseSteps "+ (2)" (checkInference $ ShouldInferSuccess [(":x", STNumber), (":x2", STNumber)] ":x2 + :x")
@@ -69,17 +63,6 @@ parseExpr = either (fail . show) pure . Parse.parseScalarExpr Dialect.ansi2011 "
 
 annotateErr :: Either AnnotateErr a -> IO a
 annotateErr = either (fail . show) pure
-
-checkUnification :: Unify -> Assertion
-checkUnification = \case
-  ShouldUnify a b ->
-    either (fail . (<>) "expectedUnification: " . show) (\subs -> assertEqual ("applying substition: " <> show subs) (apply subs a) (apply subs b)) (runExcept (mgu a b))
-  ShouldNotUnify a b ->
-    either (const (pure ())) (const (fail "expected unification to fail")) (runExcept (mgu a b))
-
-data Unify =
-  ShouldUnify (SqlType TyVar) (SqlType TyVar)
-  | ShouldNotUnify (SqlType TyVar) (SqlType TyVar)
 
 checkInference :: Infer -> (String -> IO ()) -> Assertion
 checkInference i step = case i of
