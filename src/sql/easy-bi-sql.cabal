@@ -29,6 +29,7 @@ library
   hs-source-dirs:
     lib
   exposed-modules:
+    EasyBI.Sql.BuiltinTypes
     EasyBI.Sql.Effects.Annotate
     EasyBI.Sql.Effects.Fresh
     EasyBI.Sql.Effects.Types

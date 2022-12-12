@@ -4,6 +4,7 @@
 {-# LANGUAGE LambdaCase         #-}
 {-# LANGUAGE NamedFieldPuns     #-}
 {-# LANGUAGE TupleSections      #-}
+{-# LANGUAGE ViewPatterns       #-}
 {-| Typing SQL statements. Based on "Generalizing Hindley-Milner Type Inference Algorithms" by B. Heeren, J. Hage and D. Swierstra (technical report)
 -}
 module EasyBI.Sql.Types(
@@ -36,9 +37,9 @@ import           Control.Monad.Except          (ExceptT, MonadError (..),
 import           Data.Bifunctor                (Bifunctor (..))
 import           Data.Functor.Foldable         (cataA)
 import           Data.Functor.Identity         (Identity (..))
-import           Data.Map.Strict               (Map)
 import qualified Data.Map.Strict               as Map
 import           Data.Maybe                    (mapMaybe)
+import           EasyBI.Sql.BuiltinTypes       (defaultTypeEnv)
 import           EasyBI.Sql.Effects.Annotate   (AnnotateT, MonadAnnotate (..),
                                                 runAnnotateT)
 import           EasyBI.Sql.Effects.Fresh      (FreshT, MonadFresh (..),
@@ -46,10 +47,10 @@ import           EasyBI.Sql.Effects.Fresh      (FreshT, MonadFresh (..),
 import           EasyBI.Sql.Effects.Types      (Assumption, Constraint,
                                                 SqlType (..), SqlVar (..),
                                                 Substitution, TyConstraint (..),
-                                                TyScheme (..), TyVar (..),
-                                                apply, comp, freeVars,
-                                                singleton)
-import           EasyBI.Sql.Syntax             (ScalarExprF (..))
+                                                TyVar (..), TypeEnv (..), apply,
+                                                comp, freeVars, singleton)
+import           EasyBI.Sql.Syntax             (InPredValueF (..),
+                                                ScalarExprF (..))
 import           Language.SQL.SimpleSQL.Syntax (Name (..), ScalarExpr)
 
 solve :: (MonadError (UnificationError TyVar) m, MonadFresh m) => [TyConstraint TyVar (SqlType TyVar)] -> m (Substitution TyVar)
@@ -62,17 +63,6 @@ solve (x:xs) = case x of
   TyInst a b -> do
     t <- instantiate b
     solve (TyEq a t : xs)
-
-newtype TypeEnv = TypeEnv { unTypeEnv :: Map SqlVar (TyScheme TyVar (SqlType TyVar) ) }
-
-defaultTypeEnv :: TypeEnv
-defaultTypeEnv =
-  TypeEnv
-    $ Map.fromList
-        [ (AnOperator [Name Nothing "+"], TyScheme [] (STArr STNumber (STArr STNumber STNumber)))
-        , (AnIdentifier [Name Nothing "true"], TyScheme [] STBool)
-        , (AnIdentifier [Name Nothing "false"], TyScheme [] STBool)
-        ]
 
 mkConstraints :: TypeEnv -> [Assumption] -> [Constraint]
 mkConstraints TypeEnv{unTypeEnv} = mapMaybe mkC where
@@ -164,6 +154,13 @@ operator names tps = do
   write ([(AnOperator names, arr tps result)], [])
   pure result
 
+{-| Emit constraints declaring the provided types equal
+-}
+allEquals :: MonadAnnotate m => [SqlType TyVar] -> m ()
+allEquals tps =
+  let cons = zipWith TyEq tps (drop 1 tps)
+  in write ([], cons)
+
 typeConstraints :: ScalarExpr -> Either AnnotateErr (SqlType TyVar, ([Assumption], [Constraint]))
 typeConstraints = runAnnotate . cataA typeVars
 
@@ -171,16 +168,21 @@ typeConstraints = runAnnotate . cataA typeVars
 -}
 typeVars :: (MonadError AnnotateErr m, MonadAnnotate m, MonadFresh m) => ScalarExprF (m (SqlType TyVar)) -> m (SqlType TyVar)
 typeVars = \case
-  NumLit{}             -> pure STNumber
-  StringLit{}          -> pure STText
-  IntervalLit{}        -> pure STInterval
-  TypedLit tn _        -> pure (STSqlType tn)
-  Iden names           -> bindVar (AnIdentifier names)
-  PositionalArg i      -> bindVar (APosArg i)
-  HostParameter a b    -> bindVar (AHostParameter a b)
-  BinOp x1 opNames x2  -> sequence [x1, x2] >>= operator opNames
-  PrefixOp opNames x   -> x >>= operator opNames . return
-  PostfixOp opNames x  -> x >>= operator opNames . return
-  SpecialOp names args -> sequence args >>= operator names
-  App names args       -> sequence args >>= operator names
-  k                    -> throwError $ UnsupportedScalarExpr (show $ void k)
+  NumLit{}                 -> pure STNumber
+  StringLit{}              -> pure STText
+  IntervalLit{}            -> pure STInterval
+  TypedLit tn _            -> pure (STSqlType tn)
+  Iden names               -> bindVar (AnIdentifier names)
+  PositionalArg i          -> bindVar (APosArg i)
+  HostParameter a b        -> bindVar (AHostParameter a b)
+  BinOp x1 opNames x2      -> sequence [x1, x2] >>= operator opNames
+  PrefixOp opNames x       -> x >>= operator opNames . return
+  PostfixOp opNames x      -> x >>= operator opNames . return
+  SpecialOp names args     -> sequence args >>= operator names
+  App names args           -> sequence args >>= operator names
+  Parens x                 -> x
+  Cast x (STSqlType -> tn) ->
+     -- TODO: do we need to check that the cast is legit? (This probably depends on the SQL dialect)
+    x >> pure tn
+  In _ b (InList bs)       -> sequence (b:bs) >>= allEquals >> pure STBool
+  k                        -> throwError $ UnsupportedScalarExpr (show $ void k)

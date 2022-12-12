@@ -4,6 +4,7 @@
 {-# LANGUAGE TypeApplications   #-}
 module Main(main) where
 
+import           Control.Monad                  (when)
 import           Control.Monad.Except           (runExcept)
 import           Data.Bifunctor                 (Bifunctor (..))
 import           Data.Foldable                  (traverse_)
@@ -19,7 +20,8 @@ import           Language.SQL.SimpleSQL.Syntax  (Name (..), ScalarExpr)
 import           Test.Tasty                     (TestTree, defaultMain,
                                                  testGroup)
 import           Test.Tasty.HUnit               (Assertion, assertBool,
-                                                 assertEqual, testCase)
+                                                 assertEqual, testCase,
+                                                 testCaseSteps)
 
 main :: IO ()
 main = defaultMain tests
@@ -38,9 +40,13 @@ tests = testGroup "type inference"
       , testCase "mgu5" (checkUnification $ ShouldNotUnify (STArr STBool STNumber) (STArr (STVar 0) (STVar 0)))
       ]
   , testGroup "inference"
-      [ testCase "i1" (checkInference $ ShouldInferSuccess [(":x", STNumber)] "1 + :x")
-      , testCase "i2" (checkInference $ ShouldInferSuccess [(":x", STNumber), (":x2", STNumber)] ":x2 + :x")
-      , testCase "i3" (checkInference $ ShouldInferFail (IUnificationError (UnificationError STBool STNumber)) ":x2 + true")
+      [ testCaseSteps "+ (1)" (checkInference $ ShouldInferSuccess [(":x", STNumber)] "1 + :x")
+      , testCaseSteps "+ (2)" (checkInference $ ShouldInferSuccess [(":x", STNumber), (":x2", STNumber)] ":x2 + :x")
+      , testCaseSteps "+ (3)" (checkInference $ ShouldInferFail (IUnificationError (UnificationError STBool STNumber)) ":x2 + true")
+      , testCaseSteps "+, *" (checkInference $ ShouldInferSuccess [(":x", STNumber)] ":x + (1 + 3) * 4")
+      , testCaseSteps "IN" (checkInference $ ShouldInferSuccess [(":x", STText), (":y", STText)] ":x IN ('a', 'b', c.y, :y)")
+      , testCaseSteps "OR, >" (checkInference $ ShouldInferSuccess [(":x", STText), (":y", STText), (":z", STNumber)] ":x IN ('a', 'b', c.y, :y) OR (:z > 4)")
+      , testCaseSteps "=" (checkInference $ ShouldInferSuccess [(":x", STText)] ":x = 'München'")
       ]
   ]
 
@@ -75,15 +81,24 @@ data Unify =
   ShouldUnify (SqlType TyVar) (SqlType TyVar)
   | ShouldNotUnify (SqlType TyVar) (SqlType TyVar)
 
-checkInference :: Infer -> Assertion
-checkInference = \case
+checkInference :: Infer -> (String -> IO ()) -> Assertion
+checkInference i step = case i of
   ShouldInferSuccess expectedTypes expression -> do
     expr' <- parseExpr expression
     case runInferType defaultTypeEnv expr' of
-      Left err -> fail ("checkInference: Expected inference to succeed, but it failed with " <> show err)
-      Right (_, _, assumptions) -> do
+      Left err -> do
+        step (show expr')
+        fail ("checkInference: Expected inference to succeed, but it failed with " <> show err)
+      Right (substition, exprType, assumptions) -> do
         let expected' = fmap (first (\nm -> AHostParameter nm Nothing)) expectedTypes
-        traverse_ (\typeAssignment -> assertBool ("expected " <> show (fst typeAssignment) <> " to have type " <> show (snd typeAssignment)) (typeAssignment `elem` assumptions)) expected'
+        flip traverse_ expected' $ \typeAssignment -> do
+          let result = typeAssignment `elem` assumptions
+          when (not result) $ do
+            step (show expr')
+            step (show substition)
+            step (show exprType)
+            step (show assumptions)
+          assertBool ("expected " <> show (fst typeAssignment) <> " to have type " <> show (snd typeAssignment)) result
   ShouldInferFail err expression -> do
     expr' <- parseExpr expression
     case runInferType defaultTypeEnv expr' of

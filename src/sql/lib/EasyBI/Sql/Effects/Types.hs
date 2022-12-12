@@ -16,13 +16,13 @@ module EasyBI.Sql.Effects.Types(
   apply,
   singleton,
   fromList,
-  comp
+  comp,
+  TypeEnv(..)
   ) where
 
 import           Data.Foldable                 (toList)
 import           Data.Map.Strict               (Map)
 import qualified Data.Map.Strict               as Map
-import           Data.Maybe                    (fromMaybe)
 import qualified Data.Set                      as Set
 import           EasyBI.Sql.Syntax             ()
 import           Language.SQL.SimpleSQL.Syntax (Name, TypeName)
@@ -94,11 +94,16 @@ singleton k = Substitution . Map.singleton k
 fromList :: Ord v => [(v, SqlType v)] -> Substitution v
 fromList = Substitution . Map.fromList
 
+delete :: Ord v => v -> Substitution v -> Substitution v
+delete k (Substitution m) = Substitution (Map.delete k m)
+
 {-| Apply a substitution to a type
 -}
 apply :: Ord v => Substitution v -> SqlType v -> SqlType v
 apply s@Substitution{unSubst} = \case
-  STVar v   -> fromMaybe (STVar v) (Map.lookup v unSubst)
+  STVar v   -> case Map.lookup v unSubst of
+    Nothing -> STVar v
+    Just v' -> apply (delete v s) v'
   STArr l r -> STArr (apply s l) (apply s r)
   x         -> x
 
@@ -111,3 +116,5 @@ comp (Substitution s2) (Substitution s1) =
   -- s1 followed by s2
   let k = fmap (apply (Substitution s2)) s1
   in Substitution $ k `Map.union` (Map.difference s2 s1)
+
+newtype TypeEnv = TypeEnv { unTypeEnv :: Map SqlVar (TyScheme TyVar (SqlType TyVar)) }
