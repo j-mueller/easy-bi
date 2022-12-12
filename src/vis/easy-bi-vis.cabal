@@ -35,7 +35,14 @@ library
     EasyBI.Vis.Utils
 
   build-depends:
-    base >=4.16.4 && <4.17
+    base >=4.16.4 && <4.17,
+    lens,
+    mtl,
+    logict,
+    text,
+    aeson,
+    containers,
+    hvega
 
 
 test-suite easy-bi-vis-test
