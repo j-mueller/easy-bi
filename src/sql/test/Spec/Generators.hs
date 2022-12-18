@@ -4,6 +4,7 @@
 module Spec.Generators(
   sqlTypePrim,
   name,
+  tp,
 
   -- * Modifying sql types
   generalise,
@@ -11,9 +12,12 @@ module Spec.Generators(
   ) where
 
 import           Control.Monad.Trans.Class     (MonadTrans (..))
-import           Data.Maybe                    (fromMaybe)
-import           EasyBI.Sql.Effects.Fresh      (evalFreshT, freshVar)
-import           EasyBI.Sql.Effects.Types      (SqlType (..), TyVar)
+import           Data.Map.Strict               (Map)
+import qualified Data.Map.Strict               as Map
+import           EasyBI.Sql.Effects.Fresh      (FreshT, MonadFresh, evalFresh,
+                                                evalFreshT, freshVar)
+import           EasyBI.Sql.Effects.Types      (RowType (..), SqlType (..),
+                                                Tp (..), TyVar)
 import           Language.SQL.SimpleSQL.Syntax (IntervalTypeField (..),
                                                 Name (..), PrecMultiplier (..),
                                                 PrecUnits (..), TypeName (..))
@@ -23,41 +27,67 @@ import           Test.Tasty.QuickCheck         (Arbitrary (..), Gen,
                                                 elements, listOf, listOf1,
                                                 oneof, scale, suchThatMaybe)
 
-sqlTypePrim :: Gen (SqlType v)
+sqlTypePrim :: Gen SqlType
 sqlTypePrim = do
   oneof
     [ elements [STNumber, STText, STBool, STInterval]
     , fmap STSqlType typeName
-    , STArr <$> sqlTypePrim <*> sqlTypePrim
     ]
 
-{-| Replace some types with fresh type variables
+{-| A type
 -}
-generalise :: SqlType TyVar -> Gen (SqlType TyVar)
+tp :: Gen (Tp TyVar)
+tp = do
+  k <- tpF
+  pure (evalFresh $ freshRowVar k)
+
+{-| Replace all row type variables with fresh ones
+-}
+freshRowVar :: MonadFresh m => Tp TyVar -> m (Tp TyVar)
+freshRowVar = \case
+  TpArr l r -> TpArr <$> freshRowVar l <*> freshRowVar r
+  TpRow (RowType _a mp) -> fmap TpRow (RowType <$> fmap TpVar freshVar <*> traverse freshRowVar mp)
+  x -> pure x
+
+tpF :: Gen (Tp TyVar)
+tpF = do
+  oneof
+    [ fmap TpSql sqlTypePrim
+    , TpArr <$> tp <*> tp
+    , fmap TpRow (RowType (TpVar 0) <$> genRow)
+    ]
+
+genRow :: Gen (Map Name (Tp TyVar))
+genRow =
+  let elm = (,) <$> name <*> scale (`div` 2) tp
+  in Map.fromList <$> listOf elm
+
+generalise :: Tp TyVar -> Gen (Tp TyVar)
 generalise = evalFreshT . go where
-  f k = freshVar >>= \v -> lift (elements [k, STVar v])
+  go :: Tp TyVar -> FreshT Gen (Tp TyVar)
   go = \case
-    STVar v -> pure (STVar v)
-    arr@(STArr a b) -> do
-      arr' <- STVar <$> freshVar
-      a' <- go a
-      b' <- go b
-      lift (elements [arr', STArr a' b, STArr a b', arr])
-    k -> f k
+    TpSql t -> do
+      f <- TpVar <$> freshVar
+      lift $ elements [TpSql t, f]
+    TpRow r -> TpRow <$> generaliseRow r
+    TpArr l r -> do
+      l' <- go l
+      r' <- go r
+      lift $ elements [TpArr l' r, TpArr l r', TpArr l' r']
+    x -> pure x
+
+generaliseRow :: RowType TyVar -> FreshT Gen (RowType TyVar)
+generaliseRow r@(RowType a mp) = pure r -- fixme
 
 {-| Change the type so that it can't be unified anymore
 -}
-modify :: SqlType TyVar -> Gen (Maybe (SqlType TyVar))
-modify tp = suchThatMaybe (go tp) (/= tp) where
+modify :: Tp TyVar -> Gen (Maybe (Tp TyVar))
+modify tp' = suchThatMaybe (go tp') (/= tp') where
   go = \case
-    STVar v -> pure (STVar v)
-    STArr a b ->
-      oneof
-        [ pure (STArr a b)
-        , STArr <$> fmap (fromMaybe a) (modify a) <*> fmap (fromMaybe b) (modify b)
-        , sqlTypePrim
-        ]
-    x -> oneof [pure x, sqlTypePrim]
+    TpSql t              -> oneof [pure (TpSql t), TpSql <$> sqlTypePrim]
+    TpRow (RowType a mp) -> TpRow . RowType a <$> traverse go mp
+    TpArr l r            -> TpArr <$> go l <*> go r
+    TpVar _v             -> TpSql <$> sqlTypePrim
 
 typeName :: Gen TypeName
 typeName =

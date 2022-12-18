@@ -33,8 +33,10 @@ library
     EasyBI.Sql.Effects.Annotate
     EasyBI.Sql.Effects.Fresh
     EasyBI.Sql.Effects.Types
+    EasyBI.Sql.Orphans
     EasyBI.Sql.Syntax
     EasyBI.Sql.Types
+    EasyBI.Sql.Utils
 
   build-depends:
     base >=4.16.4 && <4.17
@@ -43,6 +45,9 @@ library
     , mtl
     , containers
     , transformers
+    , lens
+    , prettyprinter
+    , text
 
 test-suite easy-bi-sql-test
   import: lang
@@ -62,4 +67,5 @@ test-suite easy-bi-sql-test
     easy-bi-sql,
     tasty-quickcheck,
     mtl,
-    transformers
+    transformers,
+    containers

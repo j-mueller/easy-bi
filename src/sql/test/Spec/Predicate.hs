@@ -59,6 +59,6 @@ instance Applicative Predicate where
 forAllValues :: (Show a, Testable prop) => Predicate a -> (PredicateValue a -> prop) -> Property
 forAllValues p t =
   let lbl = \case
-              Valid{} -> "valid"
+              Valid{}   -> "valid"
               Invalid{} -> "invalid"
   in forAll (predicateValues p) (\pv -> label (lbl pv) (t pv))

@@ -7,18 +7,24 @@
 -}
 module EasyBI.Sql.Syntax(
   InPredValueF(..),
-  ScalarExprF(..)
+  ScalarExprF(..),
+  QueryExprF(..)
 ) where
 
 import           Data.Data                     (Data, Typeable)
 import           Data.Functor.Foldable         (Base, Recursive (..))
+import           EasyBI.Sql.Orphans            ()
 import           GHC.Generics                  (Generic)
-import           Language.SQL.SimpleSQL.Syntax (Comment, CompPredQuantifier,
-                                                Frame, IntervalTypeField, Name,
-                                                OdbcLiteralType, QueryExpr,
-                                                ScalarExpr, SetOperatorName,
-                                                SetQuantifier, Sign, SortSpec,
-                                                SubQueryExprType, TypeName)
+import           Language.SQL.SimpleSQL.Syntax (Alias, Comment,
+                                                CompPredQuantifier,
+                                                Corresponding, Frame,
+                                                GroupingExpr, IntervalTypeField,
+                                                Name, OdbcLiteralType,
+                                                QueryExpr, ScalarExpr,
+                                                SetOperatorName, SetQuantifier,
+                                                Sign, SortSpec,
+                                                SubQueryExprType, TableRef,
+                                                TypeName)
 import qualified Language.SQL.SimpleSQL.Syntax as S
 
 -- based on https://github.com/JakeWheat/simple-sql-parser/blob/master/Language/SQL/SimpleSQL/Syntax.lhs
@@ -140,4 +146,42 @@ instance Recursive ScalarExpr where
     S.OdbcLiteral a b              -> OdbcLiteral a b
     S.OdbcFunc a                   -> OdbcFunc a
 
-deriving instance Ord Name
+data QueryExprF b =
+  Select
+    { sSetQuantifier :: SetQuantifier
+    , sSelectList    :: [(ScalarExpr, Maybe Name)]
+    , sFrom          :: [TableRef]
+    , sWhere         :: Maybe ScalarExpr
+    , sGroupBy       :: [GroupingExpr]
+    , sHaving        :: Maybe ScalarExpr
+    , sOrderBy       :: [SortSpec]
+    , sOffset        :: Maybe ScalarExpr
+    , sFetchFirst    :: Maybe ScalarExpr
+    }
+  | QueryExprSetOp
+    { sExpr          :: QueryExpr
+    , sCombOp        :: SetOperatorName
+    , sSetQuantifier :: SetQuantifier
+    , sCorresponding :: Corresponding
+    , sExpr1         :: QueryExpr
+    }
+  | With
+    { sWithRecursive :: Bool
+    , sViews         :: [(Alias, b)]
+    , sQueryExpr     :: b
+    }
+  | Values [[ScalarExpr]]
+  | Table [Name]
+  | QEComment [Comment] b
+  deriving stock (Eq, Show, Functor, Data, Typeable, Generic)
+
+type instance Base QueryExpr = QueryExprF
+
+instance Recursive QueryExpr where
+  project = \case
+    S.Select a b c d e f g h i -> Select a b c d e f g h i
+    S.QueryExprSetOp a b c d e -> QueryExprSetOp a b c d e
+    S.With a b c               -> With a b c
+    S.Values vs                -> Values vs
+    S.Table n                  -> Table n
+    S.QEComment a b            -> QEComment a b

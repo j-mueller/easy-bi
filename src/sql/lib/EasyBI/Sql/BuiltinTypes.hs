@@ -6,7 +6,8 @@ module EasyBI.Sql.BuiltinTypes(
 
 import qualified Data.Map.Strict               as Map
 import           EasyBI.Sql.Effects.Types      (SqlType (..), SqlVar (..),
-                                                TyScheme (..), TypeEnv (..))
+                                                Tp (..), TyScheme (..),
+                                                TypeEnv (..))
 import           Language.SQL.SimpleSQL.Syntax (Name (..))
 
 {-| Types for builtin operators and constants
@@ -23,13 +24,14 @@ defaultTypeEnv =
         , constant "true" STBool
         , constant "false" STBool
         , binOp "or" STBool STBool STBool
+        , binOp "and" STBool STBool STBool
         -- "=" is overloaded (not polymorphic) but it should be ok to treat it like
         -- a polymorphic function here
-        , let v = STVar 0 in (AnOperator [Name Nothing "="], TyScheme [0] (STArr v (STArr v STBool)))
+        , let v = TpVar 0 in (AnOperator [Name Nothing "="], TyScheme [0] (TpArr v (TpArr v (TpSql STBool))))
         ]
 
-binOp :: String -> SqlType v -> SqlType v -> SqlType v -> (SqlVar, (TyScheme v (SqlType v)))
-binOp nm a b c = (AnOperator [Name Nothing nm], TyScheme [] (STArr a (STArr b c)))
+binOp :: String -> SqlType -> SqlType -> SqlType -> (SqlVar, (TyScheme v (Tp v)))
+binOp nm a b c = (AnOperator [Name Nothing nm], TyScheme [] (TpArr (TpSql a) (TpArr (TpSql b) (TpSql c))))
 
-constant :: String -> SqlType v -> (SqlVar, (TyScheme v (SqlType v)))
-constant nm tp = (AnIdentifier [Name Nothing nm], TyScheme [] tp)
+constant :: String -> SqlType -> (SqlVar, (TyScheme v (Tp v)))
+constant nm tp = (AnIdentifier [Name Nothing nm], TyScheme [] (TpSql tp))
