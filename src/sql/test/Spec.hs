@@ -36,18 +36,19 @@ tests = testGroup "type inference"
       ]
   , Unification.tests
   , testGroup "inference"
-      [ testCaseSteps "+ (1)" (checkInference $ ShouldInferSuccess [(p ":x", TpSql STNumber)] "1 + :x")
-      , testCaseSteps "+ (2)" (checkInference $ ShouldInferSuccess [(p ":x", TpSql STNumber), (p ":x2", TpSql STNumber)] ":x2 + :x")
-      , testCaseSteps "+ (3)" (checkInference $ ShouldInferFail (IUnificationError [] (UnificationFailed (TpSql STNumber) (TpSql STBool))) ":x2 + true")
-      , testCaseSteps "+, *" (checkInference $ ShouldInferSuccess [(p ":x", TpSql STNumber)] ":x + (1 + 3) * 4")
-      , testCaseSteps "IN" (checkInference $ ShouldInferSuccess [(p ":x", TpSql STText), (p ":y", TpSql STText)] ":x IN ('a', 'b', c.y, :y)")
-      , testCaseSteps "OR, >" (checkInference $ ShouldInferSuccess [(p ":x", TpSql STText), (p ":y", TpSql STText), (p ":z", TpSql STNumber)] ":x IN ('a', 'b', c.y, :y) OR (:z > 4)")
-      , testCaseSteps "=" (checkInference $ ShouldInferSuccess [(p ":x", TpSql STText)] ":x = 'München'")
-      , testCaseSteps "row (1)" (checkInference $ ShouldInferSuccess [(p ":x", TpSql STNumber), dot 2 "c" [("y", TpSql STNumber)]] ":x + c.y")
-      , testCaseSteps "row (2)" (checkInference $ ShouldInferSuccess [(p ":x", TpSql STNumber), dot 2 "c" [("y", TpSql STNumber)]] "(:x = c.y) AND (:x + 5 > 10)")
-      , testCaseSteps "row (3)" (checkInference $ ShouldInferSuccess [dot 13 "c" [("y", TpSql STNumber), ("z", TpSql STNumber)]] "c.y + c.z")
-      , testCaseSteps "row (4)" (checkInference $ ShouldInferSuccess [dot 17 "c" [("y", TpSql STNumber), ("t", TpSql STText)]] "(c.y > 6) OR (c.t = 'a')")
-      , testCaseSteps "row (5)" (checkInference $ ShouldInferSuccess [(p ":y", TpSql STNumber), (p ":t", TpSql STText)] "(:y > 6) OR (:t = 'a')")
+      [ testCaseSteps "+ (1)" (inferSuccess [(p ":x", number)] "1 + :x")
+      , testCaseSteps "+ (2)" (inferSuccess [(p ":x", number), (p ":x2", number)] ":x2 + :x")
+      , testCaseSteps "+ (3)" (inferFail (IUnificationError [] (UnificationFailed (TpSql STBool) (number))) ":x2 + true")
+      , testCaseSteps "+, *" (inferSuccess [(p ":x", number)] ":x + (1 + 3) * 4")
+      , testCaseSteps "IN" (inferSuccess [(p ":x", text), (p ":y", text)] ":x IN ('a', 'b', c.y, :y)")
+      , testCaseSteps "OR, >" (inferSuccess [(p ":x", text), (p ":y", text), (p ":z", number)] ":x IN ('a', 'b', c.y, :y) OR (:z > 4)")
+      , testCaseSteps "=" (inferSuccess [(p ":x", text)] ":x = 'München'")
+      , testCaseSteps "row (1)" (inferSuccess [(p ":x", number), dot 2 "c" [("y", number)]] ":x + c.y")
+      , testCaseSteps "row (2)" (inferSuccess [(p ":x", number), dot 2 "c" [("y", number)]] "(:x = c.y) AND (:x + 5 > 10)")
+      , testCaseSteps "row (3)" (inferSuccess [dot 12 "c" [("y", number), ("z", number)]] "c.y + c.z")
+      , testCaseSteps "row (4)" (inferSuccess [dot 14 "c" [("y", number), ("t", text)]] "(c.y > 6) OR (c.t = 'a')")
+      , testCaseSteps "row (5)" (inferSuccess [(p ":y", number), (p ":t", text)] "(:y > 6) OR (:t = 'a')")
+      , testCaseSteps "polymorphic equals" (inferSuccess [(p ":y", number), (p ":t", text)] "(:t = 'a') OR (:y = 2)")
       ]
   ]
 
@@ -80,9 +81,9 @@ checkInference i step = case i of
         step expression
         step (show expr')
         let Right (_, (assumptions, constraints)) = typeConstraints expr'
-        step (Utils.renderString assumptions)
-        step (Utils.renderString constraints)
-        step (Utils.renderString err)
+        step ("assmptions:  " <> Utils.renderString assumptions)
+        step ("constraints: " <> Utils.renderString constraints)
+        step ("error:       " <> Utils.renderString err)
         assertBool ("checkInference: Expected inference to succeed, but it failed") False
       Right (substition, exprType, assignments) -> do
         flip traverse_ expectedTypes $ \(var_, expType) -> do
@@ -95,7 +96,7 @@ checkInference i step = case i of
                 step ("assumptions2:  " <> Utils.renderString assumptions2)
                 step ("constraints:   " <> Utils.renderString constraints)
                 step ("substitution:  " <> Utils.renderString substition)
-            Just actualType -> 
+            Just actualType ->
               assertEqual (show var_) expType actualType
   ShouldInferFail err expression -> do
     expr' <- parseExpr expression
@@ -123,3 +124,15 @@ data Infer =
   {-| Inference should fail
   -}
   | ShouldInferFail InferError String
+
+inferSuccess :: [(SqlVar, Tp TyVar)] -> String -> (String -> IO ()) -> Assertion
+inferSuccess a = checkInference . ShouldInferSuccess a
+
+inferFail :: InferError -> String -> (String -> IO ()) -> Assertion
+inferFail a = checkInference . ShouldInferFail a
+
+number :: Tp v
+number = TpSql STNumber
+
+text :: Tp v
+text = TpSql STText

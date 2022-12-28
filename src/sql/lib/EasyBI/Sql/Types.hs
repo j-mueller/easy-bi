@@ -41,6 +41,7 @@ import           Control.Monad.Except          (ExceptT, MonadError (..),
 import           Control.Monad.State.Strict    (execStateT)
 import           Control.Monad.Trans.Class     (MonadTrans (..))
 import           Control.Monad.Writer          (runWriterT)
+import           Data.Bifunctor                (Bifunctor (..))
 import           Data.Either                   (partitionEithers)
 import           Data.Functor.Foldable         (cataA)
 import           Data.Functor.Identity         (Identity (..))
@@ -71,8 +72,8 @@ solve (x:xs) = case x of
   TyEq a b -> do
     m <- wrapError (MguGoal x) (mgu a b)
     rest <- solve (fmap (applyCons m) xs)
-    -- rest <- solve (fmap (fmap (apply m)) xs)
     pure (rest `comp` m)
+    -- pure (m `comp` rest)
   TyInst a b -> do
     (t, e) <- runWriterT (instantiate b)
     case e of
@@ -83,27 +84,26 @@ solve (x:xs) = case x of
 -}
 mkConstraints :: MonadFresh m => TypeEnv -> [Assumption] -> m ([Constraint], Map.Map SqlVar (Tp TyVar))
 mkConstraints _ []                                        = pure ([], mempty)
-mkConstraints e@TypeEnv{unTypeEnv} ((sqlVar, sqlType):xs) = do
-  v <- TpVar <$> freshVar
-  let applicableConstraint (sqlVar', sqlType')
-        | sqlVar' == sqlVar = Left sqlType'
-        | otherwise         = Right (sqlVar', sqlType')
+mkConstraints e@TypeEnv{unTypeEnv} ((sqlVar, sqlType):xs) =
+  case Map.lookup sqlVar unTypeEnv of
+    Just x -> first ((:) (TyInst sqlType x)) <$> mkConstraints e xs
+    Nothing -> do
+      v <- TpVar <$> freshVar
+      let applicableConstraint (sqlVar', sqlType')
+            | sqlVar' == sqlVar = Left sqlType'
+            | otherwise         = Right (sqlVar', sqlType')
 
-      -- TODO: Use a map (SqlVar, Assumption) instead of []
-      (applicableConstraints, rest) = partitionEithers (applicableConstraint <$> xs)
+          -- TODO: Use a map (SqlVar, Assumption) instead of []
+          (applicableConstraints, rest) = partitionEithers (applicableConstraint <$> xs)
 
-      assignedType :: Maybe Constraint
-      assignedType = fmap (TyInst v) (Map.lookup sqlVar unTypeEnv)
+          constraintsFromAssumptions :: [Constraint]
+          constraintsFromAssumptions = TyEq v sqlType : fmap (TyEq v) applicableConstraints
 
-      -- find constraints that have the same
-      constraintsFromAssumptions :: [Constraint]
-      constraintsFromAssumptions = TyEq v sqlType : fmap (TyEq v) applicableConstraints
 
-      prependAssignedType = maybe id (:) assignedType
+          result = constraintsFromAssumptions
 
-      result = prependAssignedType constraintsFromAssumptions
-  (other, otherMap) <- mkConstraints e rest
-  pure (result ++ other, Map.insert sqlVar v otherMap)
+      (other, otherMap) <- mkConstraints e rest
+      pure (result ++ other, Map.insert sqlVar v otherMap)
 
 data InferError =
   IAnnotateError AnnotateErr
@@ -113,7 +113,7 @@ data InferError =
 instance Pretty InferError where
   pretty = \case
     IAnnotateError e         -> viaShow e
-    IUnificationError cons e -> vsep [pretty cons, pretty e]
+    IUnificationError cons e -> hang 2 $ vsep [pretty cons, pretty e]
 
 {-| Infer the type of a scalar expression under the given type env
 -}
@@ -194,6 +194,7 @@ mgu a b = wrapError (Mgu a b) $ go (a, b) where
     (TpArr a' b', TpArr c' d') -> do
       subs' <- go (a', c')
       k <- wrapError (MguArr (a', b') (c', d')) (go (apply subs' b', apply subs' d'))
+      -- pure (subs' `comp` k)
       pure (subs' <> k)
     _ -> throwError $ UnificationFailed a b
 
