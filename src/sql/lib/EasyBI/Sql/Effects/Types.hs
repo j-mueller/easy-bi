@@ -3,38 +3,38 @@
 {-# LANGUAGE NamedFieldPuns     #-}
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE ViewPatterns       #-}
-module EasyBI.Sql.Effects.Types(
-  TyVar(..),
-  Assumption,
-  Constraint,
-  SqlVar(..),
-  SqlType(..),
-  RowType(..),
-  mkRow,
-  Tp(..),
-  freeVars,
-  TyScheme(..),
-  freeVarsS,
-  TyConstraint(..),
-  Substitution,
-  apply,
-  applyCons,
-  singleton,
-  fromList,
-  insertRow,
-  comp,
-  TypeEnv(..),
-  InferenceLog(..)
+module EasyBI.Sql.Effects.Types
+  ( Assumption
+  , Constraint
+  , InferenceLog (..)
+  , RowType (..)
+  , SqlType (..)
+  , SqlVar (..)
+  , Substitution
+  , Tp (..)
+  , TyConstraint (..)
+  , TyScheme (..)
+  , TyVar (..)
+  , TypeEnv (..)
+  , apply
+  , applyCons
+  , comp
+  , freeVars
+  , freeVarsS
+  , fromList
+  , insertRow
+  , mkRow
+  , singleton
   ) where
 
-import           Data.Foldable                 (toList)
-import           Data.Map.Strict               (Map)
-import qualified Data.Map.Strict               as Map
-import qualified Data.Set                      as Set
-import           EasyBI.Sql.Syntax             ()
-import           Language.SQL.SimpleSQL.Syntax (Name (..), TypeName)
-import           Prettyprinter                 (Doc, Pretty (..), comma,
-                                                concatWith, viaShow, (<+>))
+import Data.Foldable                 (toList)
+import Data.Map.Strict               (Map)
+import Data.Map.Strict               qualified as Map
+import Data.Set                      qualified as Set
+import EasyBI.Sql.Syntax             ()
+import Language.SQL.SimpleSQL.Syntax (Name (..), TypeName)
+import Prettyprinter                 (Doc, Pretty (..), comma, concatWith,
+                                      viaShow, (<+>))
 
 {-| Type variables
 -}

@@ -1,31 +1,28 @@
 {-# LANGUAGE LambdaCase #-}
 {-| QuickCheck generators
 -}
-module Spec.Generators(
-  sqlTypePrim,
-  name,
-  tp,
-
-  -- * Modifying sql types
-  generalise,
-  modify
+module Spec.Generators
+  ( name
+  , sqlTypePrim
+  , tp
+    -- * Modifying sql types
+  , generalise
+  , modify
   ) where
 
-import           Control.Monad.Trans.Class     (MonadTrans (..))
-import           Data.Map.Strict               (Map)
-import qualified Data.Map.Strict               as Map
-import           EasyBI.Sql.Effects.Fresh      (FreshT, MonadFresh, evalFresh,
-                                                evalFreshT, freshVar)
-import           EasyBI.Sql.Effects.Types      (RowType (..), SqlType (..),
-                                                Tp (..), TyVar)
-import           Language.SQL.SimpleSQL.Syntax (IntervalTypeField (..),
-                                                Name (..), PrecMultiplier (..),
-                                                PrecUnits (..), TypeName (..))
-import           Test.Tasty.QuickCheck         (Arbitrary (..), Gen,
-                                                Positive (..),
-                                                arbitraryPrintableChar,
-                                                elements, listOf, listOf1,
-                                                oneof, scale, suchThatMaybe)
+import Control.Monad.Trans.Class     (MonadTrans (..))
+import Data.Map.Strict               (Map)
+import Data.Map.Strict               qualified as Map
+import EasyBI.Sql.Effects.Fresh      (FreshT, MonadFresh, evalFresh, evalFreshT,
+                                      freshVar)
+import EasyBI.Sql.Effects.Types      (RowType (..), SqlType (..), Tp (..),
+                                      TyVar)
+import Language.SQL.SimpleSQL.Syntax (IntervalTypeField (..), Name (..),
+                                      PrecMultiplier (..), PrecUnits (..),
+                                      TypeName (..))
+import Test.Tasty.QuickCheck         (Arbitrary (..), Gen, Positive (..),
+                                      arbitraryPrintableChar, elements, listOf,
+                                      listOf1, oneof, scale, suchThatMaybe)
 
 sqlTypePrim :: Gen SqlType
 sqlTypePrim = do

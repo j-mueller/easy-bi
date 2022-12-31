@@ -2,28 +2,27 @@
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE TypeApplications   #-}
-module Main(main) where
+module Main
+  ( main
+  ) where
 
-import           Data.Foldable                  (traverse_)
-import           EasyBI.Sql.Effects.Types       (Tp (..), mkRow)
+import Data.Foldable                  (traverse_)
+import EasyBI.Sql.Effects.Types       (Tp (..), mkRow)
 
-import qualified Data.Map.Strict                as Map
-import           EasyBI.Sql.Types               (AnnotateErr, InferError (..),
-                                                 SqlType (..), SqlVar (..),
-                                                 TyVar (..),
-                                                 UnificationError (..),
-                                                 defaultTypeEnv, getFailure,
-                                                 runInferType, typeConstraints)
-import qualified EasyBI.Sql.Utils               as Utils
-import qualified Language.SQL.SimpleSQL.Dialect as Dialect
-import qualified Language.SQL.SimpleSQL.Parse   as Parse
-import           Language.SQL.SimpleSQL.Syntax  (Name (..), ScalarExpr)
-import qualified Spec.Unification               as Unification
-import           Test.Tasty                     (TestTree, defaultMain,
-                                                 testGroup)
-import           Test.Tasty.HUnit               (Assertion, assertBool,
-                                                 assertEqual, testCase,
-                                                 testCaseSteps)
+import Data.Map.Strict                qualified as Map
+import EasyBI.Sql.Types               (AnnotateErr, InferError (..),
+                                       SqlType (..), SqlVar (..), TyVar (..),
+                                       UnificationError (..), defaultTypeEnv,
+                                       getFailure, runInferType,
+                                       typeConstraints)
+import EasyBI.Sql.Utils               qualified as Utils
+import Language.SQL.SimpleSQL.Dialect qualified as Dialect
+import Language.SQL.SimpleSQL.Parse   qualified as Parse
+import Language.SQL.SimpleSQL.Syntax  (Name (..), ScalarExpr)
+import Spec.Unification               qualified as Unification
+import Test.Tasty                     (TestTree, defaultMain, testGroup)
+import Test.Tasty.HUnit               (Assertion, assertBool, assertEqual,
+                                       testCase, testCaseSteps)
 
 main :: IO ()
 main = defaultMain tests

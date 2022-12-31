@@ -1,13 +1,13 @@
-module EasyBI.Sql.Utils(
-  renderString,
-  renderText
-) where
+module EasyBI.Sql.Utils
+  ( renderString
+  , renderText
+  ) where
 
-import           Data.Text.Lazy            (Text)
-import qualified Data.Text.Lazy            as Text
-import           Prettyprinter             (Pretty (pretty),
-                                            defaultLayoutOptions, layoutPretty)
-import qualified Prettyprinter.Render.Text as Render
+import Data.Text.Lazy            (Text)
+import Data.Text.Lazy            qualified as Text
+import Prettyprinter             (Pretty (pretty), defaultLayoutOptions,
+                                  layoutPretty)
+import Prettyprinter.Render.Text qualified as Render
 
 renderString :: Pretty a => a -> String
 renderString = Text.unpack . renderText

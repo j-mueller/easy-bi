@@ -8,63 +8,56 @@
 {-# LANGUAGE ViewPatterns       #-}
 {-| Typing SQL statements. Based on "Generalizing Hindley-Milner Type Inference Algorithms" by B. Heeren, J. Hage and D. Swierstra (technical report)
 -}
-module EasyBI.Sql.Types(
-  TyVar(..),
-  SqlType(..),
-  SqlVar(..),
-  TyConstraint(..),
-  AnnotateErr(..),
-  UnificationError(..),
-  getFailure,
-  typeConstraints,
+module EasyBI.Sql.Types
+  ( AnnotateErr (..)
+  , SqlType (..)
+  , SqlVar (..)
+  , TyConstraint (..)
+  , TyVar (..)
+  , UnificationError (..)
+  , getFailure
+  , typeConstraints
+    -- * Type enviroments
+  , TypeEnv (..)
+  , defaultTypeEnv
+    -- * Substitutions and unifiers
+  , InferError (..)
+  , Substitution
+  , apply
+  , comp
+  , inferType
+  , mgu
+  , runInferType
+  , singleton
+  ) where
 
-  -- * Type enviroments
-  TypeEnv(..),
-  defaultTypeEnv,
-
-  -- * Substitutions and unifiers
-  Substitution,
-  apply,
-  mgu,
-  comp,
-  singleton,
-  inferType,
-  InferError(..),
-  runInferType
-) where
-
-import           Control.Lens                  (_1, _2, _3, assign, modifying,
-                                                use)
-import           Control.Monad                 (void)
-import           Control.Monad.Except          (ExceptT, MonadError (..),
-                                                runExceptT)
-import           Control.Monad.State.Strict    (execStateT)
-import           Control.Monad.Trans.Class     (MonadTrans (..))
-import           Control.Monad.Writer          (runWriterT)
-import           Data.Bifunctor                (Bifunctor (..))
-import           Data.Either                   (partitionEithers)
-import           Data.Functor.Foldable         (cataA)
-import           Data.Functor.Identity         (Identity (..))
-import qualified Data.Map.Merge.Strict         as Merge
-import qualified Data.Map.Strict               as Map
-import           EasyBI.Sql.BuiltinTypes       (defaultTypeEnv)
-import           EasyBI.Sql.Effects.Annotate   (AnnotateT, MonadAnnotate (..),
-                                                runAnnotateT)
-import           EasyBI.Sql.Effects.Fresh      (FreshT, MonadFresh (..),
-                                                evalFreshT, instantiate)
-import           EasyBI.Sql.Effects.Types      (Assumption, Constraint,
-                                                InferenceLog (..), RowType (..),
-                                                SqlType (..), SqlVar (..),
-                                                Substitution, Tp (..),
-                                                TyConstraint (..), TyScheme,
-                                                TyVar (..), TypeEnv (..), apply,
-                                                applyCons, comp, freeVars,
-                                                insertRow, mkRow, singleton)
-import           EasyBI.Sql.Syntax             (InPredValueF (..),
-                                                ScalarExprF (..))
-import           Language.SQL.SimpleSQL.Syntax (Name (..), ScalarExpr)
-import           Prettyprinter                 (Pretty (..), colon, hang,
-                                                viaShow, vsep, (<+>))
+import Control.Lens                  (_1, _2, _3, assign, modifying, use)
+import Control.Monad                 (void)
+import Control.Monad.Except          (ExceptT, MonadError (..), runExceptT)
+import Control.Monad.State.Strict    (execStateT)
+import Control.Monad.Trans.Class     (MonadTrans (..))
+import Control.Monad.Writer          (runWriterT)
+import Data.Bifunctor                (Bifunctor (..))
+import Data.Either                   (partitionEithers)
+import Data.Functor.Foldable         (cataA)
+import Data.Functor.Identity         (Identity (..))
+import Data.Map.Merge.Strict         qualified as Merge
+import Data.Map.Strict               qualified as Map
+import EasyBI.Sql.BuiltinTypes       (defaultTypeEnv)
+import EasyBI.Sql.Effects.Annotate   (AnnotateT, MonadAnnotate (..),
+                                      runAnnotateT)
+import EasyBI.Sql.Effects.Fresh      (FreshT, MonadFresh (..), evalFreshT,
+                                      instantiate)
+import EasyBI.Sql.Effects.Types      (Assumption, Constraint, InferenceLog (..),
+                                      RowType (..), SqlType (..), SqlVar (..),
+                                      Substitution, Tp (..), TyConstraint (..),
+                                      TyScheme, TyVar (..), TypeEnv (..), apply,
+                                      applyCons, comp, freeVars, insertRow,
+                                      mkRow, singleton)
+import EasyBI.Sql.Syntax             (InPredValueF (..), ScalarExprF (..))
+import Language.SQL.SimpleSQL.Syntax (Name (..), ScalarExpr)
+import Prettyprinter                 (Pretty (..), colon, hang, viaShow, vsep,
+                                      (<+>))
 
 solve :: (MonadError (UnificationError TyVar) m, MonadFresh m) => [TyConstraint TyVar (Tp TyVar)] -> m (Substitution TyVar)
 solve [] = pure mempty

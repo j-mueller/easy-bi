@@ -1,14 +1,13 @@
 {-| Types of SQL operators and constants
 -}
-module EasyBI.Sql.BuiltinTypes(
-  defaultTypeEnv
-) where
+module EasyBI.Sql.BuiltinTypes
+  ( defaultTypeEnv
+  ) where
 
-import qualified Data.Map.Strict               as Map
-import           EasyBI.Sql.Effects.Types      (SqlType (..), SqlVar (..),
-                                                Tp (..), TyScheme (..),
-                                                TypeEnv (..))
-import           Language.SQL.SimpleSQL.Syntax (Name (..))
+import Data.Map.Strict               qualified as Map
+import EasyBI.Sql.Effects.Types      (SqlType (..), SqlVar (..), Tp (..),
+                                      TyScheme (..), TypeEnv (..))
+import Language.SQL.SimpleSQL.Syntax (Name (..))
 
 {-| Types for builtin operators and constants
 -}

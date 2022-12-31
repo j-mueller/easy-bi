@@ -12,21 +12,19 @@
 {-| A set of rules for basic charts
 -}
 module EasyBI.Vis.Rules
-  ( makeChart,
-    barChart,
-    assignColor,
-    lineChart,
-    scatterplot,
-  )
-where
+  ( assignColor
+  , barChart
+  , lineChart
+  , makeChart
+  , scatterplot
+  ) where
 
-import           Control.Applicative (Alternative (..))
-import           Control.Monad       (guard)
-import           EasyBI.Vis.Types    (Encoding, Mark (..), Measurement (..),
-                                      Relation, Rule, colorChannel, dependsOn,
-                                      field, mark, markChannel, measurement,
-                                      positionX, positionY)
-import           EasyBI.Vis.Utils    (choose, setOrFail')
+import Control.Applicative (Alternative (..))
+import Control.Monad       (guard)
+import EasyBI.Vis.Types    (Encoding, Mark (..), Measurement (..), Relation,
+                            Rule, colorChannel, dependsOn, field, mark,
+                            markChannel, measurement, positionX, positionY)
+import EasyBI.Vis.Utils    (choose, setOrFail')
 
 {-| Visualise data in a bar chart
 -}

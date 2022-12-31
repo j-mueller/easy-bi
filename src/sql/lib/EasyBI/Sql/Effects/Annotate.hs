@@ -7,17 +7,17 @@
 {-# LANGUAGE NamedFieldPuns        #-}
 {-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE UndecidableInstances  #-}
-module EasyBI.Sql.Effects.Annotate(
-  MonadAnnotate(..),
-  AnnotateT(..),
-  runAnnotateT
-) where
+module EasyBI.Sql.Effects.Annotate
+  ( AnnotateT (..)
+  , MonadAnnotate (..)
+  , runAnnotateT
+  ) where
 
-import           Control.Monad.Except      (ExceptT, MonadError)
-import           Control.Monad.Trans.Class (MonadTrans (..))
-import           Control.Monad.Writer      (WriterT, runWriterT, tell)
-import           EasyBI.Sql.Effects.Fresh  (MonadFresh)
-import           EasyBI.Sql.Effects.Types  (Assumption, Constraint)
+import Control.Monad.Except      (ExceptT, MonadError)
+import Control.Monad.Trans.Class (MonadTrans (..))
+import Control.Monad.Writer      (WriterT, runWriterT, tell)
+import EasyBI.Sql.Effects.Fresh  (MonadFresh)
+import EasyBI.Sql.Effects.Types  (Assumption, Constraint)
 
 class Monad m => MonadAnnotate m where
   write :: ([Assumption], [Constraint]) -> m ()

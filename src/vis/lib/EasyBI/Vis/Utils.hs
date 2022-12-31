@@ -2,16 +2,16 @@
 {-# LANGUAGE TypeApplications #-}
 {-| Utilities for writing rules
 -}
-module EasyBI.Vis.Utils(
-  -- * Writing rules
-  setOrFail',
-  choose,
-  chooseSubList
-) where
+module EasyBI.Vis.Utils
+  ( -- * Writing rules
+    choose
+  , chooseSubList
+  , setOrFail'
+  ) where
 
-import           Control.Applicative (Alternative (..))
-import           Control.Lens        (Lens', (&), (.~), (^.))
-import           Control.Monad.State (MonadState, get, put)
+import Control.Applicative (Alternative (..))
+import Control.Lens        (Lens', (&), (.~), (^.))
+import Control.Monad.State (MonadState, get, put)
 
 {-| Set a 'Maybe' field to a value. Fails if the field is already set to a different value.
 -}

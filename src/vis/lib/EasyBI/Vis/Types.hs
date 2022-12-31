@@ -13,59 +13,54 @@
 {-# LANGUAGE TypeApplications       #-}
 
 module EasyBI.Vis.Types
-  ( Encoding(..),
-    emptyEncoding,
-    positionX,
-    positionY,
-    colorChannel,
-    markChannel,
-    wildCardsUsed,
-    ColorChannel(..),
-    emptyColorChannel,
-    Measurement(..),
-    scale,
-    PositionChannel(..),
-    emptyPosChannel,
-    title,
-    field,
-    Scale(..),
-    ScaleTp(..),
-    scaleTp,
-    OutOf(..),
-
-    MarkChannel(..),
-    emptyMarkChannel,
-    mark,
-    Mark(..),
-
+  ( ColorChannel (..)
+  , Encoding (..)
+  , Mark (..)
+  , MarkChannel (..)
+  , Measurement (..)
+  , OutOf (..)
+  , PositionChannel (..)
+  , Scale (..)
+  , ScaleTp (..)
+  , colorChannel
+  , emptyColorChannel
+  , emptyEncoding
+  , emptyMarkChannel
+  , emptyPosChannel
+  , field
+  , mark
+  , markChannel
+  , positionX
+  , positionY
+  , scale
+  , scaleTp
+  , title
+  , wildCardsUsed
     -- * Relations
-    Relation(..),
-
+  , Relation (..)
     -- * User selections
-    Selections(..),
-    emptySelections,
-    wildCards,
-    xAxis,
-    yAxis,
-    color,
-    selectedMark,
-
+  , Selections (..)
+  , color
+  , emptySelections
+  , selectedMark
+  , wildCards
+  , xAxis
+  , yAxis
     -- * Rules
-    Rule,
-    runRule,
-  )
-where
+  , Rule
+  , runRule
+  ) where
 
-import           Control.Applicative       (Alternative (..))
-import           Control.Lens              (makeFields, makeLenses, (^.))
-import           Control.Monad             (guard)
-import qualified Control.Monad.Logic       as LogicT
-import           Control.Monad.Logic.Class (MonadLogic)
-import           Control.Monad.State       (MonadState, execStateT)
-import           Data.Foldable             (traverse_)
-import           Data.List                 (nub)
-import           Data.Text                 (Text)
-import           EasyBI.Vis.Utils          (chooseSubList, setOrFail')
+import Control.Applicative       (Alternative (..))
+import Control.Lens              (makeFields, makeLenses, (^.))
+import Control.Monad             (guard)
+import Control.Monad.Logic       qualified as LogicT
+import Control.Monad.Logic.Class (MonadLogic)
+import Control.Monad.State       (MonadState, execStateT)
+import Data.Foldable             (traverse_)
+import Data.List                 (nub)
+import Data.Text                 (Text)
+import EasyBI.Vis.Utils          (chooseSubList, setOrFail')
 
 {-| Things that can be measured
 -}

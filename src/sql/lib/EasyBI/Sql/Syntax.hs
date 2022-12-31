@@ -5,27 +5,23 @@
 {-# OPTIONS_GHC -Wno-orphans    #-}
 {-|
 -}
-module EasyBI.Sql.Syntax(
-  InPredValueF(..),
-  ScalarExprF(..),
-  QueryExprF(..)
-) where
+module EasyBI.Sql.Syntax
+  ( InPredValueF (..)
+  , QueryExprF (..)
+  , ScalarExprF (..)
+  ) where
 
-import           Data.Data                     (Data, Typeable)
-import           Data.Functor.Foldable         (Base, Recursive (..))
-import           EasyBI.Sql.Orphans            ()
-import           GHC.Generics                  (Generic)
-import           Language.SQL.SimpleSQL.Syntax (Alias, Comment,
-                                                CompPredQuantifier,
-                                                Corresponding, Frame,
-                                                GroupingExpr, IntervalTypeField,
-                                                Name, OdbcLiteralType,
-                                                QueryExpr, ScalarExpr,
-                                                SetOperatorName, SetQuantifier,
-                                                Sign, SortSpec,
-                                                SubQueryExprType, TableRef,
-                                                TypeName)
-import qualified Language.SQL.SimpleSQL.Syntax as S
+import Data.Data                     (Data, Typeable)
+import Data.Functor.Foldable         (Base, Recursive (..))
+import EasyBI.Sql.Orphans            ()
+import GHC.Generics                  (Generic)
+import Language.SQL.SimpleSQL.Syntax (Alias, Comment, CompPredQuantifier,
+                                      Corresponding, Frame, GroupingExpr,
+                                      IntervalTypeField, Name, OdbcLiteralType,
+                                      QueryExpr, ScalarExpr, SetOperatorName,
+                                      SetQuantifier, Sign, SortSpec,
+                                      SubQueryExprType, TableRef, TypeName)
+import Language.SQL.SimpleSQL.Syntax qualified as S
 
 -- based on https://github.com/JakeWheat/simple-sql-parser/blob/master/Language/SQL/SimpleSQL/Syntax.lhs
 

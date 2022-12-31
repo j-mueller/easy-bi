@@ -2,18 +2,19 @@
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE TypeApplications   #-}
-module Main(main) where
+module Main
+  ( main
+  ) where
 
-import           Control.Lens     ((&), (.~))
-import qualified Data.Text        as Text
-import           EasyBI.Vis.Rules (makeChart)
-import           EasyBI.Vis.Types (Mark (..), Measurement (..), OutOf (..),
-                                   Relation (..), emptyEncoding,
-                                   emptySelections, field, mark, markChannel,
-                                   positionX, positionY, runRule, wildCards,
-                                   wildCardsUsed)
-import           Test.Tasty       (TestTree, defaultMain, testGroup)
-import           Test.Tasty.HUnit (Assertion, assertEqual, testCase)
+import Control.Lens     ((&), (.~))
+import Data.Text        qualified as Text
+import EasyBI.Vis.Rules (makeChart)
+import EasyBI.Vis.Types (Mark (..), Measurement (..), OutOf (..), Relation (..),
+                         emptyEncoding, emptySelections, field, mark,
+                         markChannel, positionX, positionY, runRule, wildCards,
+                         wildCardsUsed)
+import Test.Tasty       (TestTree, defaultMain, testGroup)
+import Test.Tasty.HUnit (Assertion, assertEqual, testCase)
 
 main :: IO ()
 main = defaultMain tests

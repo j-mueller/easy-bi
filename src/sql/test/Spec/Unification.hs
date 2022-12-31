@@ -2,20 +2,20 @@
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE TypeApplications   #-}
-module Spec.Unification(
-  tests
-) where
+module Spec.Unification
+  ( tests
+  ) where
 
-import           Control.Monad.Except     (runExcept)
-import           EasyBI.Sql.Effects.Fresh (evalFreshT)
-import           EasyBI.Sql.Effects.Types (Tp (..))
-import           EasyBI.Sql.Types         (SqlType (..), TyVar (..), apply, mgu)
-import qualified Spec.Generators          as Gen
-import           Spec.Predicate           (Predicate (..), PredicateValue (..),
-                                           forAllValues)
-import           Test.Tasty               (TestTree, testGroup)
-import           Test.Tasty.HUnit         (Assertion, assertEqual, testCase)
-import           Test.Tasty.QuickCheck    (Gen, oneof, testProperty)
+import Control.Monad.Except     (runExcept)
+import EasyBI.Sql.Effects.Fresh (evalFreshT)
+import EasyBI.Sql.Effects.Types (Tp (..))
+import EasyBI.Sql.Types         (SqlType (..), TyVar (..), apply, mgu)
+import Spec.Generators          qualified as Gen
+import Spec.Predicate           (Predicate (..), PredicateValue (..),
+                                 forAllValues)
+import Test.Tasty               (TestTree, testGroup)
+import Test.Tasty.HUnit         (Assertion, assertEqual, testCase)
+import Test.Tasty.QuickCheck    (Gen, oneof, testProperty)
 
 tests :: TestTree
 tests =

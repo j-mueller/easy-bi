@@ -8,33 +8,28 @@
 {-# LANGUAGE TypeOperators     #-}
 
 module EasyBI.Vis.HVega
-  ( vegaLite,
-
+  ( vegaLite
     -- * Helper / utility
-    toHtml,
-    toHtmlFile,
-    toJSON,
-  )
-where
+  , toHtml
+  , toHtmlFile
+  , toJSON
+  ) where
 
-import           Control.Lens           (_Just, to, (^.), (^..))
-import           Control.Monad.Writer   (MonadWriter, runWriter, runWriterT,
-                                         tell)
-import qualified Data.Aeson             as JSON
-import           Data.Foldable          (forM_, toList)
-import           Data.Sequence          (Seq)
-import qualified Data.Sequence          as Seq
-import qualified Data.Text.Lazy         as TL
-import           EasyBI.Vis.Types       (ColorChannel, Encoding, Mark (..),
-                                         MarkChannel, Measurement (..),
-                                         PositionChannel, Relation (..),
-                                         ScaleTp (..), colorChannel, field,
-                                         fieldName, mark, markChannel,
-                                         measurement, positionX, positionY,
-                                         scale, scaleTp, title)
-import           Graphics.Vega.VegaLite (BuildEncodingSpecs, Position (..),
-                                         PropertySpec, VegaLite)
-import qualified Graphics.Vega.VegaLite as VL
+import Control.Lens           (_Just, to, (^.), (^..))
+import Control.Monad.Writer   (MonadWriter, runWriter, runWriterT, tell)
+import Data.Aeson             qualified as JSON
+import Data.Foldable          (forM_, toList)
+import Data.Sequence          (Seq)
+import Data.Sequence          qualified as Seq
+import Data.Text.Lazy         qualified as TL
+import EasyBI.Vis.Types       (ColorChannel, Encoding, Mark (..), MarkChannel,
+                               Measurement (..), PositionChannel, Relation (..),
+                               ScaleTp (..), colorChannel, field, fieldName,
+                               mark, markChannel, measurement, positionX,
+                               positionY, scale, scaleTp, title)
+import Graphics.Vega.VegaLite (BuildEncodingSpecs, Position (..), PropertySpec,
+                               VegaLite)
+import Graphics.Vega.VegaLite qualified as VL
 
 {-| Convert an encoding to a 'VegaLite' specification
 -}

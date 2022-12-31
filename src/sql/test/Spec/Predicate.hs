@@ -1,16 +1,16 @@
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE LambdaCase         #-}
-module Spec.Predicate(
-  Predicate(..),
-  PredicateValue(..),
-  predicateValues,
-  forAllValues,
-  getA,
-  and_
+module Spec.Predicate
+  ( Predicate (..)
+  , PredicateValue (..)
+  , and_
+  , forAllValues
+  , getA
+  , predicateValues
   ) where
 
-import           Control.Applicative   (liftA2)
-import           Test.Tasty.QuickCheck (Gen, Property, Testable, forAll, label)
+import Control.Applicative   (liftA2)
+import Test.Tasty.QuickCheck (Gen, Property, Testable, forAll, label)
 
 newtype Predicate a = Predicate{ unPredicate :: Gen (PredicateValue a) }
 

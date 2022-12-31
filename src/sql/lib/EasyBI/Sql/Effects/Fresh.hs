@@ -9,24 +9,23 @@
 {-# LANGUAGE UndecidableInstances  #-}
 {-| Typing SQL statements. Based on "Generalizing Hindley-Milner Type Inference Algorithms" by B. Heeren, J. Hage and D. Swierstra (technical report)
 -}
-module EasyBI.Sql.Effects.Fresh(
-  MonadFresh(..),
-  FreshT(..),
-  runFreshT,
-  evalFreshT,
-  evalFresh,
-  instantiate
+module EasyBI.Sql.Effects.Fresh
+  ( FreshT (..)
+  , MonadFresh (..)
+  , evalFresh
+  , evalFreshT
+  , instantiate
+  , runFreshT
   ) where
 
-import           Control.Monad.Except       (ExceptT, MonadError (..))
-import           Control.Monad.State.Strict (MonadState (..), StateT,
-                                             evalStateT, runStateT)
-import           Control.Monad.Trans.Class  (MonadTrans (..))
-import           Control.Monad.Writer       (MonadWriter (tell), WriterT)
-import           Data.Functor.Identity      (Identity (..))
-import           EasyBI.Sql.Effects.Types   (InferenceLog (..), Tp (..),
-                                             TyScheme (..), TyVar (..), apply,
-                                             fromList)
+import Control.Monad.Except       (ExceptT, MonadError (..))
+import Control.Monad.State.Strict (MonadState (..), StateT, evalStateT,
+                                   runStateT)
+import Control.Monad.Trans.Class  (MonadTrans (..))
+import Control.Monad.Writer       (MonadWriter (tell), WriterT)
+import Data.Functor.Identity      (Identity (..))
+import EasyBI.Sql.Effects.Types   (InferenceLog (..), Tp (..), TyScheme (..),
+                                   TyVar (..), apply, fromList)
 
 class Monad m => MonadFresh m where
   freshVar :: m TyVar
