@@ -14,7 +14,7 @@ common lang
     default-extensions: ExplicitForAll ScopedTypeVariables
                         DeriveGeneric StandaloneDeriving DeriveLift
                         GeneralizedNewtypeDeriving DeriveFunctor DeriveFoldable
-                        DeriveTraversable
+                        DeriveTraversable ImportQualifiedPost
     other-extensions: DeriveAnyClass FlexibleContexts FlexibleInstances
                       MultiParamTypeClasses TypeFamilies OverloadedStrings
                       MonadComprehensions ConstrainedClassMethods TupleSections GADTs
@@ -30,9 +30,19 @@ library
     lib
   exposed-modules:
     EasyBI.Cli
+    EasyBI.Cli.Command
+    EasyBI.Cli.Config
+    EasyBI.MonadLog
 
   build-depends:
-    base >=4.16.4 && <4.17
+    base >=4.16.4 && <4.17,
+    mtl,
+    katip,
+    prettyprinter,
+    transformers,
+    text,
+    exceptions,
+    optparse-applicative
 
 executable easy-bi
   import: lang
