@@ -27,8 +27,8 @@ import Test.Tasty.QuickCheck         (Arbitrary (..), Gen, Positive (..),
 sqlTypePrim :: Gen SqlType
 sqlTypePrim = do
   oneof
-    [ elements [STNumber, STText, STBool, STInterval]
-    , fmap STSqlType typeName
+    [ elements [STNumber, STInt, STText, STBool, STInterval]
+    , fmap STOtherSqlType typeName
     ]
 
 {-| A type

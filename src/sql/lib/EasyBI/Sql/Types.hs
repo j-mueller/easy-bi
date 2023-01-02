@@ -16,6 +16,7 @@ module EasyBI.Sql.Types
   , TyVar (..)
   , UnificationError (..)
   , getFailure
+  , rowFromSchema
   , typeConstraints
     -- * Type enviroments
   , TypeEnv (..)
@@ -41,8 +42,10 @@ import Data.Bifunctor                (Bifunctor (..))
 import Data.Either                   (partitionEithers)
 import Data.Functor.Foldable         (cataA)
 import Data.Functor.Identity         (Identity (..))
+import Data.Map                      (Map)
 import Data.Map.Merge.Strict         qualified as Merge
 import Data.Map.Strict               qualified as Map
+import Data.Maybe                    (mapMaybe)
 import EasyBI.Sql.BuiltinTypes       (defaultTypeEnv)
 import EasyBI.Sql.Effects.Annotate   (AnnotateT, MonadAnnotate (..),
                                       runAnnotateT)
@@ -51,13 +54,33 @@ import EasyBI.Sql.Effects.Fresh      (FreshT, MonadFresh (..), evalFreshT,
 import EasyBI.Sql.Effects.Types      (Assumption, Constraint, InferenceLog (..),
                                       RowType (..), SqlType (..), SqlVar (..),
                                       Substitution, Tp (..), TyConstraint (..),
-                                      TyScheme, TyVar (..), TypeEnv (..), apply,
-                                      applyCons, comp, freeVars, insertRow,
-                                      mkRow, singleton)
+                                      TyScheme (..), TyVar (..), TypeEnv (..),
+                                      apply, applyCons, comp, freeVars,
+                                      fromTypeName, insertRow, mkRow, singleton)
 import EasyBI.Sql.Syntax             (InPredValueF (..), ScalarExprF (..))
-import Language.SQL.SimpleSQL.Syntax (Name (..), ScalarExpr)
+import Language.SQL.SimpleSQL.Syntax (ColumnDef (..), Name (..), ScalarExpr,
+                                      TableElement (..))
 import Prettyprinter                 (Pretty (..), colon, hang, viaShow, vsep,
                                       (<+>))
+
+{-| Turn a list of 'TableElement's (from a CREATE TABLE statement)
+into a row type
+-}
+rowFromSchema ::
+  [TableElement] ->
+  Map String SqlType ->
+  TyScheme TyVar (Tp TyVar)
+rowFromSchema elms customTypes =
+  let rowVar = 0
+      elements = flip mapMaybe elms $ \case
+        TableColumnDef (ColumnDef nm (TpSql . fromTypeName -> tp) _ _) ->
+          let Name _ nm' = nm
+          in case Map.lookup nm' customTypes of
+              Nothing  -> Just (nm, tp)
+              Just tp' -> Just (nm, TpSql tp')
+        _                                          -> Nothing
+      rowTp = RowType (TpVar rowVar) (Map.fromList elements)
+  in TyScheme [rowVar] (TpRow rowTp)
 
 solve :: (MonadError (UnificationError TyVar) m, MonadFresh m) => [TyConstraint TyVar (Tp TyVar)] -> m (Substitution TyVar)
 solve [] = pure mempty
@@ -66,7 +89,6 @@ solve (x:xs) = case x of
     m <- wrapError (MguGoal x) (mgu a b)
     rest <- solve (fmap (applyCons m) xs)
     pure (rest `comp` m)
-    -- pure (m `comp` rest)
   TyInst a b -> do
     (t, e) <- runWriterT (instantiate b)
     case e of
@@ -264,7 +286,8 @@ identifier xs = do
   write ([(AnIdentifier xs, tv)], [TyEq tv x])
   pure x
 
-
+{-| Accessing a record
+-}
 mkAt :: (MonadError AnnotateErr m, MonadFresh m, MonadAnnotate m) => [Name] -> [Name] -> m (Tp TyVar)
 mkAt ys = \case
   [] -> throwError EmptyIdentifier
@@ -277,13 +300,6 @@ mkAt ys = \case
     let recType = TpRow $ mkRow row0 [(y, fieldTp)]
     write ([(AnIdentifier (x:ys), k)], [TyEq k recType])
     pure fieldTp
-  -- ys -> do
-  --   let (lbl : name : ys') = reverse ys
-  --   -- (names).lbl --> returns the type of lbl
-  --   k <- bindVar (AnIdentifier names)
-  --   v <- freshVar
-  --   lblTp <- TpVar <$> freshVar
-  --   pure lblTp
 
 
 {-| Emit constraints declaring the provided types equal
@@ -303,7 +319,7 @@ typeVars = \case
   NumLit{}                 -> pure (TpSql STNumber)
   StringLit{}              -> pure (TpSql STText)
   IntervalLit{}            -> pure (TpSql STInterval)
-  TypedLit tn _            -> pure (TpSql $ STSqlType tn)
+  TypedLit tn _            -> pure (TpSql $ STOtherSqlType tn)
   Iden names               -> identifier names -- bindVar (AnIdentifier names)
   PositionalArg i          -> bindVar (APosArg i)
   HostParameter a b        -> bindVar (AHostParameter a b)
@@ -313,7 +329,7 @@ typeVars = \case
   SpecialOp names args     -> sequence args >>= operator names
   App names args           -> sequence args >>= operator names
   Parens x                 -> x
-  Cast x (TpSql . STSqlType -> tn) ->
+  Cast x (TpSql . STOtherSqlType -> tn) ->
      -- TODO: do we need to check that the cast is legit? (This probably depends on the SQL dialect)
     x >> pure tn
   In _ b (InList bs)       -> sequence (b:bs) >>= allEquals >> pure (TpSql STBool)

@@ -35,6 +35,8 @@ library
     EasyBI.MonadLog
 
   build-depends:
+    easy-bi-sql
+  build-depends:
     base >=4.16.4 && <4.17,
     mtl,
     katip,
@@ -42,7 +44,9 @@ library
     transformers,
     text,
     exceptions,
-    optparse-applicative
+    optparse-applicative,
+    simple-sql-parser,
+    containers
 
 executable easy-bi
   import: lang

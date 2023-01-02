@@ -22,17 +22,19 @@ module EasyBI.Sql.Effects.Types
   , freeVars
   , freeVarsS
   , fromList
+  , fromTypeName
   , insertRow
   , mkRow
   , singleton
   ) where
 
+import Data.Char                     (toLower)
 import Data.Foldable                 (toList)
 import Data.Map.Strict               (Map)
 import Data.Map.Strict               qualified as Map
 import Data.Set                      qualified as Set
 import EasyBI.Sql.Syntax             ()
-import Language.SQL.SimpleSQL.Syntax (Name (..), TypeName)
+import Language.SQL.SimpleSQL.Syntax (Name (..), TypeName (..))
 import Prettyprinter                 (Doc, Pretty (..), comma, concatWith,
                                       viaShow, (<+>))
 
@@ -104,20 +106,40 @@ instance Pretty v => Pretty (Tp v) where
     TpVar v   -> pretty v
 
 data SqlType =
-  STNumber
-  | STText
+  STNumber -- ^ Floating point, decimal (numeric)
+  | STInt -- ^ Integer (ordinal)
+  | STText -- ^ Text, varchar, etc.
   | STBool
+  | STDateTime -- ^ Timestamp date+time
   | STInterval
-  | STSqlType TypeName
+  | STOtherSqlType TypeName
   deriving stock (Eq, Show)
+
+fromTypeName :: TypeName -> SqlType
+fromTypeName = \case
+  TimeTypeName{}                          -> STDateTime
+  CharTypeName{}                          -> STText
+  TypeName [Name _ (knownName -> Just x)] -> x
+  x                                       -> STOtherSqlType x
+
+knownName :: String -> Maybe SqlType
+knownName (fmap toLower -> x) = Map.lookup x tps where
+  tps = Map.fromList
+    [ ("text", STText)
+    , ("integer", STInt)
+    , ("numeric", STNumber)
+    ]
+
 
 instance Pretty SqlType where
   pretty = \case
-    STNumber     -> "number"
-    STText       -> "text"
-    STBool       -> "bool"
-    STInterval   -> "interval"
-    STSqlType tn -> "<" <> viaShow tn <> ">"
+    STNumber          -> "number"
+    STInt             -> "int"
+    STText            -> "text"
+    STBool            -> "bool"
+    STInterval        -> "interval"
+    STDateTime        -> "datetime"
+    STOtherSqlType tn -> "<" <> viaShow tn <> ">"
 
 {-| The set of free type variables of a type @t@ is denoted by @freevars t@ and simply
 consists of all type variables in @t@.
