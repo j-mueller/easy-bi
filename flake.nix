@@ -19,7 +19,12 @@
         in {
           devShells = (import ./nix/easybi/shell.nix {
             inherit easyBiProject system;
-          });
+          }) // {
+            ci = (import ./nix/easybi/shell.nix {
+              inherit easyBiProject system;
+              withoutDevTools = true;
+              }).default;
+          };
           packages = easyBiPackages // {
             docker = easyBiImages;
           };
