@@ -6,38 +6,23 @@
   };
   
   outputs = { self, nixpkgs, flake-utils, haskellNix }:
-    flake-utils.lib.eachSystem [ "x86_64-linux" "x86_64-darwin" ] (system:
+    flake-utils.lib.eachSystem [ "x86_64-linux" ] (system:
       let
-        overlays = [
-          haskellNix.overlay
-            (final: prev: {
-              # This overlay adds our project to pkgs
-              easyBiProject =
-                final.haskell-nix.project' {
-                  src = ./.;
-                  compiler-nix-name = "ghc925";
-                  # This is used by `nix develop .` to open a shell for use with
-                  # `cabal`
-                  shell.tools = {
-                    cabal = {};
-                  };
-                  # Non-Haskell shell tools go here
-                  shell.buildInputs = with pkgs; [
-                    nixpkgs-fmt
-                  ];
-                  # This adds `js-unknown-ghcjs-cabal` to the shell.
-                  # shell.crossPlatforms = p: [p.ghcjs];
-                };
-            })
-      ];
-        pkgs = import nixpkgs { inherit system overlays; inherit (haskellNix) config; };
-        flake = pkgs.easyBiProject.flake {
-          # This adds support for `nix build .#js-unknown-ghcjs:hello:exe:hello`
-          # crossPlatforms = p: [p.ghcjs];
+        pkgs = import nixpkgs { inherit system; };
+        easyBiProject = import ./nix/easybi/project.nix { inherit system haskellNix nixpkgs; };
+        easyBiPackages = import ./nix/easybi/packages.nix {
+          inherit system easyBiProject;
         };
-        in flake // {
-          # Built by `nix build .`
-          packages.default = flake.packages."easy-bi-cli:exe:easy-bi";
+        easyBiImages = import ./nix/easybi/docker.nix {
+          inherit easyBiPackages system nixpkgs;
+        };
+        in {
+          devShells = (import ./nix/easybi/shell.nix {
+            inherit easyBiProject system;
+          });
+          packages = easyBiPackages // {
+            docker = easyBiImages;
+          };
           nixConfig = {
             extra-substituters = [
               "https://cache.iog.io"
