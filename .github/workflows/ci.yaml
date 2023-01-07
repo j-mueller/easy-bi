@@ -9,12 +9,6 @@ jobs:
   build-test:
     name: "Build & test using cabal"
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - package: easy-bi-cli
-          - package: easy-bi-sql
-          - package: easy-bi-vis
     steps:
     - name: Checkout
       uses: actions/checkout@v3
@@ -37,12 +31,13 @@ jobs:
           substituters        = https://hydra.iohk.io https://iohk.cachix.org https://cache.nixos.org/
           trusted-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= iohk.cachix.org-1:DpRUyj7h7V830dp/i6Nti+NEO2/nhblbov/8MW7Rqoo= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
           allow-import-from-derivation = true
+
     # - name: ❄ Cachix cache of nix derivations
     #   uses: cachix/cachix-action@v12
     #   with:
     #     name: easy-bi
     #     authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
-
+  
     - name: Github cache ~/.cabal/packages, ~/.cabal/store and dist-newstyle
       uses: actions/cache@v3
       with:
@@ -51,14 +46,14 @@ jobs:
           ~/.cabal/store
           dist-newstyle
         key: |
-          cabal-${{ runner.os }}-${{ hashFiles('cabal.project', 'default.nix', 'shell.nix') }}-${{ matrix.package }}
+          cabal-${{ runner.os }}-${{ hashFiles('cabal.project', 'flake.nix', 'flake.lock') }}
         restore-keys: |
-          cabal-${{ runner.os }}-${{ hashFiles('cabal.project', 'default.nix', 'shell.nix') }}
+          cabal-${{ runner.os }}-${{ hashFiles('cabal.project', 'flake.nix', 'flake.lock') }}
+
     - name: Build
       run: |
         nix develop .#ci --command bash -c 'cabal update'
-        nix develop .#ci --command bash -c 'cabal build ${{ matrix.package }}'
-    - name: ❓ Test
-      if: ${{ matrix.package != 'easy-bi-cli' }}
+        nix develop .#ci --command bash -c 'cabal build --enable-tests all'
+    - name: Test
       run: |
-        nix develop .#ci --command bash -c 'cabal test ${{ matrix.package }}'
+        nix develop .#ci --command bash -c 'cabal test all'
