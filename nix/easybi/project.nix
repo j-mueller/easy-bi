@@ -21,6 +21,12 @@ let
     projectFileName = "cabal.project";
     compiler-nix-name = compiler;
 
+    modules = [
+      {
+          packages.easy-bi-cli.dontStrip = false;
+      }
+    ];
+
   };
 
 in {
