@@ -17,24 +17,26 @@ module EasyBI.Sql.Types
   , TyVar (..)
   , UnificationError (..)
   , getFailure
+  , mkConstraints
   , rowFromSchema
-  , typeConstraints
     -- * Type enviroments
   , TypeEnv (..)
   , defaultTypeEnv
+    -- * Annotations
+  , annotQueryExprF
+  , annotScalarExprF
     -- * Substitutions and unifiers
   , InferError (..)
   , Substitution
   , apply
   , comp
-  , inferType
   , mgu
-  , runInferType
   , singleton
+  , solve
   ) where
 
 import Control.Lens                   (_1, _2, _3, assign, modifying, use)
-import Control.Monad                  (void)
+import Control.Monad                  (void, (>=>))
 import Control.Monad.Except           (ExceptT, MonadError (..), runExceptT)
 import Control.Monad.State.Strict     (execStateT)
 import Control.Monad.Trans.Class      (MonadTrans (..))
@@ -43,16 +45,13 @@ import Data.Bifunctor                 (Bifunctor (..))
 import Data.Either                    (partitionEithers)
 import Data.Foldable                  (traverse_)
 import Data.Functor.Foldable          (cataA)
-import Data.Functor.Identity          (Identity (..))
 import Data.Map                       (Map)
 import Data.Map.Merge.Strict          qualified as Merge
 import Data.Map.Strict                qualified as Map
 import Data.Maybe                     (mapMaybe)
 import EasyBI.Sql.BuiltinTypes        (defaultTypeEnv)
-import EasyBI.Sql.Effects.Annotate    (AnnotateT, MonadAnnotate (..),
-                                       runAnnotateT)
-import EasyBI.Sql.Effects.Fresh       (FreshT, MonadFresh (..), evalFreshT,
-                                       instantiate)
+import EasyBI.Sql.Effects.Annotate    (MonadAnnotate (..))
+import EasyBI.Sql.Effects.Fresh       (MonadFresh (..), instantiate)
 import EasyBI.Sql.Effects.Types       (Assumption, Constraint,
                                        InferenceLog (..), RowType (..),
                                        SqlType (..), SqlVar (..), Substitution,
@@ -67,6 +66,7 @@ import Language.SQL.SimpleSQL.Dialect qualified as SQL.Dialect
 import Language.SQL.SimpleSQL.Pretty  qualified as SQL.Pretty
 import Language.SQL.SimpleSQL.Syntax  (ColumnDef (..), Name (..), ScalarExpr,
                                        TableElement (..))
+import Language.SQL.SimpleSQL.Syntax  qualified as SQL.Syntax
 import Prettyprinter                  (Pretty (..), colon, hang, viaShow, vsep,
                                        (<+>))
 
@@ -136,21 +136,6 @@ instance Pretty InferError where
   pretty = \case
     IAnnotateError e         -> viaShow e
     IUnificationError cons e -> hang 2 $ vsep [pretty cons, pretty e]
-
-{-| Infer the type of a scalar expression under the given type env
--}
-runInferType :: TypeEnv -> ScalarExpr -> Either InferError (Substitution TyVar, Tp TyVar, Map.Map SqlVar (Tp TyVar))
-runInferType env = runIdentity . runExceptT . evalFreshT . inferType env
-
-{-| Infer the type of a scalar expression
--}
-inferType :: (MonadError InferError m, MonadFresh m) => TypeEnv -> ScalarExpr -> m (Substitution TyVar, Tp TyVar, Map.Map SqlVar (Tp TyVar))
-inferType typeEnv expr = do
-  (tp, (assumptions, constraints)) <- runExceptT (runAnnotateT (cataA typeVars expr)) >>= either (throwError . IAnnotateError) pure
-  (constraints', assignments) <- mkConstraints typeEnv assumptions
-  let allConstraints = constraints <> constraints'
-  subs <- runExceptT (solve allConstraints) >>= either (throwError . IUnificationError allConstraints) pure
-  return (subs, apply subs tp, fmap (apply subs) assignments)
 
 data UnificationError v =
   UnificationFailed (Tp v) (Tp v)
@@ -255,11 +240,6 @@ data AnnotateErr =
   | EmptyIdentifier
   deriving (Eq, Ord, Show)
 
-type Annotate = AnnotateT (FreshT (ExceptT AnnotateErr Identity))
-
-runAnnotate :: Annotate a -> Either AnnotateErr (a, ([Assumption], [Constraint]))
-runAnnotate = runIdentity . runExceptT . evalFreshT . runAnnotateT
-
 {-| Generate a fresh type variable for a term-level variable
 -}
 bindVar :: (MonadAnnotate m, MonadFresh m) => SqlVar -> m (Tp TyVar)
@@ -310,6 +290,8 @@ mkAt ys = \case
     write ([(AnIdentifier (x:ys), k)], [TyEq k recType])
     pure fieldTp
 
+writeEquals :: MonadAnnotate m => Tp TyVar -> Tp TyVar -> m ()
+writeEquals a b = write ([], [TyEq a b])
 
 {-| Emit constraints declaring the provided types equal
 -}
@@ -318,13 +300,10 @@ allEquals tps =
   let cons = zipWith TyEq tps (drop 1 tps)
   in write ([], cons)
 
-typeConstraints :: ScalarExpr -> Either AnnotateErr (Tp TyVar, ([Assumption], [Constraint]))
-typeConstraints = runAnnotate . cataA typeVars
-
 {-| Produce the type variables and assumptions for a scalar expression.
 -}
-typeVars :: (MonadError AnnotateErr m, MonadAnnotate m, MonadFresh m) => ScalarExprF (m (Tp TyVar)) -> m (Tp TyVar)
-typeVars = \case
+annotScalarExprF :: (MonadError AnnotateErr m, MonadAnnotate m, MonadFresh m) => ScalarExprF (m (Tp TyVar)) -> m (Tp TyVar)
+annotScalarExprF = \case
   NumLit{}                 -> pure (TpSql STNumber)
   StringLit{}              -> pure (TpSql STText)
   IntervalLit{}            -> pure (TpSql STInterval)
@@ -342,30 +321,38 @@ typeVars = \case
      -- TODO: do we need to check that the cast is legit? (This probably depends on the SQL dialect)
     x >> pure tn
   In _ b (InList bs)       -> sequence (b:bs) >>= allEquals >> pure (TpSql STBool)
-  SubQueryExpr _ qry       -> cataA queryTypeVars qry
+  SubQueryExpr _ qry       -> cataA annotQueryExprF qry
   k                        -> throwError $ UnsupportedScalarExpr (show $ void k)
 
 {-| Produce the type variables and assumptions for a query expression.
 -}
-queryTypeVars :: (MonadError AnnotateErr m, MonadAnnotate m, MonadFresh m) => QueryExprF (m (Tp TyVar)) -> m (Tp TyVar)
-queryTypeVars = \case
+annotQueryExprF :: (MonadError AnnotateErr m, MonadAnnotate m, MonadFresh m) => QueryExprF (m (Tp TyVar)) -> m (Tp TyVar)
+annotQueryExprF = \case
   Select{sSelectList, sWhere, sHaving, sOffset, sFetchFirst} -> do
-    -- TODO: Where and Having should have type bool?
-    traverse_ (cataA typeVars) sWhere
-    traverse_ (cataA typeVars) sHaving
+    traverse_ (cataA annotScalarExprF >=> writeEquals (TpSql STBool)) sWhere
+    traverse_ (cataA annotScalarExprF >=> writeEquals (TpSql STBool)) sHaving
 
     -- TODO: Offset and FetchFirst should have type Int?
-    traverse_ (cataA typeVars) sOffset
-    traverse_ (cataA typeVars) sFetchFirst
+    traverse_ (cataA annotScalarExprF) sOffset
+    traverse_ (cataA annotScalarExprF) sFetchFirst
 
     let -- | Extract the column name, throwing an error if there is no name
-        getCol (expr, nm) = maybe (throwError $ ColumnWithoutAlias $ SQL.Pretty.prettyScalarExpr SQL.Dialect.postgres expr) (pure . (expr,)) nm
+        getCol (expr, nm) = (expr,) <$> maybe (extractNameFromExpr expr) pure nm
 
         -- | Collect annotations for the column type
-        getColType (expr, nm) = (nm,) <$> cataA typeVars expr
+        getColType (expr, nm) = (nm,) <$> cataA annotScalarExprF expr
 
+    -- TODO: Is there a way we can reliably detect scalar queries?
+    -- if yes, then we need to not call mkRowVar in this case
+    -- if no, then .. ??
     traverse getCol sSelectList >>= traverse getColType >>= mkRowVar
+  QEComment _ b -> b
   k -> throwError $ UnsupportedQuery (show $ void k)
 
 mkRowVar :: (MonadError AnnotateErr m, MonadFresh m) => [(Name, Tp TyVar)] -> m (Tp TyVar)
 mkRowVar entries = fmap TpRow . mkRow <$> freshVar <*> pure entries
+
+extractNameFromExpr :: (MonadError AnnotateErr m) => ScalarExpr -> m Name
+extractNameFromExpr = \case
+  SQL.Syntax.Iden (reverse -> x :_) -> pure x
+  expr -> throwError $ ColumnWithoutAlias $ SQL.Pretty.prettyScalarExpr SQL.Dialect.postgres expr

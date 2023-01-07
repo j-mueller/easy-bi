@@ -155,11 +155,11 @@ data QueryExprF b =
     , sFetchFirst    :: Maybe ScalarExpr
     }
   | QueryExprSetOp
-    { sExpr          :: QueryExpr
+    { sExpr          :: b
     , sCombOp        :: SetOperatorName
     , sSetQuantifier :: SetQuantifier
     , sCorresponding :: Corresponding
-    , sExpr1         :: QueryExpr
+    , sExpr1         :: b
     }
   | With
     { sWithRecursive :: Bool

@@ -74,7 +74,7 @@ generalise = evalFreshT . go where
     x -> pure x
 
 generaliseRow :: RowType TyVar -> FreshT Gen (RowType TyVar)
-generaliseRow r@(RowType a mp) = pure r -- fixme
+generaliseRow r@(RowType _a _mp) = pure r -- fixme
 
 {-| Change the type so that it can't be unified anymore
 -}

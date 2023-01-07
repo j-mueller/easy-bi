@@ -30,11 +30,11 @@ library
     lib
   exposed-modules:
     EasyBI.Sql.BuiltinTypes
+    EasyBI.Sql.Class
     EasyBI.Sql.Effects.Annotate
     EasyBI.Sql.Effects.Fresh
     EasyBI.Sql.Effects.Types
     EasyBI.Sql.Orphans
-    EasyBI.Sql.Query
     EasyBI.Sql.Syntax
     EasyBI.Sql.Types
     EasyBI.Sql.Utils
