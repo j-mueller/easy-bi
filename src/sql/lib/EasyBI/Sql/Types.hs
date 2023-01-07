@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveFunctor      #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleContexts   #-}
+{-# LANGUAGE GADTs              #-}
 {-# LANGUAGE LambdaCase         #-}
 {-# LANGUAGE NamedFieldPuns     #-}
 {-# LANGUAGE OverloadedStrings  #-}
@@ -32,36 +33,42 @@ module EasyBI.Sql.Types
   , singleton
   ) where
 
-import Control.Lens                  (_1, _2, _3, assign, modifying, use)
-import Control.Monad                 (void)
-import Control.Monad.Except          (ExceptT, MonadError (..), runExceptT)
-import Control.Monad.State.Strict    (execStateT)
-import Control.Monad.Trans.Class     (MonadTrans (..))
-import Control.Monad.Writer          (runWriterT)
-import Data.Bifunctor                (Bifunctor (..))
-import Data.Either                   (partitionEithers)
-import Data.Functor.Foldable         (cataA)
-import Data.Functor.Identity         (Identity (..))
-import Data.Map                      (Map)
-import Data.Map.Merge.Strict         qualified as Merge
-import Data.Map.Strict               qualified as Map
-import Data.Maybe                    (mapMaybe)
-import EasyBI.Sql.BuiltinTypes       (defaultTypeEnv)
-import EasyBI.Sql.Effects.Annotate   (AnnotateT, MonadAnnotate (..),
-                                      runAnnotateT)
-import EasyBI.Sql.Effects.Fresh      (FreshT, MonadFresh (..), evalFreshT,
-                                      instantiate)
-import EasyBI.Sql.Effects.Types      (Assumption, Constraint, InferenceLog (..),
-                                      RowType (..), SqlType (..), SqlVar (..),
-                                      Substitution, Tp (..), TyConstraint (..),
-                                      TyScheme (..), TyVar (..), TypeEnv (..),
-                                      apply, applyCons, comp, freeVars,
-                                      fromTypeName, insertRow, mkRow, singleton)
-import EasyBI.Sql.Syntax             (InPredValueF (..), ScalarExprF (..))
-import Language.SQL.SimpleSQL.Syntax (ColumnDef (..), Name (..), ScalarExpr,
-                                      TableElement (..))
-import Prettyprinter                 (Pretty (..), colon, hang, viaShow, vsep,
-                                      (<+>))
+import Control.Lens                   (_1, _2, _3, assign, modifying, use)
+import Control.Monad                  (void)
+import Control.Monad.Except           (ExceptT, MonadError (..), runExceptT)
+import Control.Monad.State.Strict     (execStateT)
+import Control.Monad.Trans.Class      (MonadTrans (..))
+import Control.Monad.Writer           (runWriterT)
+import Data.Bifunctor                 (Bifunctor (..))
+import Data.Either                    (partitionEithers)
+import Data.Foldable                  (traverse_)
+import Data.Functor.Foldable          (cataA)
+import Data.Functor.Identity          (Identity (..))
+import Data.Map                       (Map)
+import Data.Map.Merge.Strict          qualified as Merge
+import Data.Map.Strict                qualified as Map
+import Data.Maybe                     (mapMaybe)
+import EasyBI.Sql.BuiltinTypes        (defaultTypeEnv)
+import EasyBI.Sql.Effects.Annotate    (AnnotateT, MonadAnnotate (..),
+                                       runAnnotateT)
+import EasyBI.Sql.Effects.Fresh       (FreshT, MonadFresh (..), evalFreshT,
+                                       instantiate)
+import EasyBI.Sql.Effects.Types       (Assumption, Constraint,
+                                       InferenceLog (..), RowType (..),
+                                       SqlType (..), SqlVar (..), Substitution,
+                                       Tp (..), TyConstraint (..),
+                                       TyScheme (..), TyVar (..), TypeEnv (..),
+                                       apply, applyCons, comp, freeVars,
+                                       fromTypeName, insertRow, mkRow,
+                                       singleton)
+import EasyBI.Sql.Syntax              (InPredValueF (..), QueryExprF (..),
+                                       ScalarExprF (..))
+import Language.SQL.SimpleSQL.Dialect qualified as SQL.Dialect
+import Language.SQL.SimpleSQL.Pretty  qualified as SQL.Pretty
+import Language.SQL.SimpleSQL.Syntax  (ColumnDef (..), Name (..), ScalarExpr,
+                                       TableElement (..))
+import Prettyprinter                  (Pretty (..), colon, hang, viaShow, vsep,
+                                       (<+>))
 
 {-| Turn a list of 'TableElement's (from a CREATE TABLE statement)
 into a row type
@@ -243,6 +250,8 @@ arr (x:xs) r = TpArr x (arr xs r)
 
 data AnnotateErr =
   UnsupportedScalarExpr String
+  | UnsupportedQuery String
+  | ColumnWithoutAlias String
   | EmptyIdentifier
   deriving (Eq, Ord, Show)
 
@@ -333,4 +342,30 @@ typeVars = \case
      -- TODO: do we need to check that the cast is legit? (This probably depends on the SQL dialect)
     x >> pure tn
   In _ b (InList bs)       -> sequence (b:bs) >>= allEquals >> pure (TpSql STBool)
+  SubQueryExpr _ qry       -> cataA queryTypeVars qry
   k                        -> throwError $ UnsupportedScalarExpr (show $ void k)
+
+{-| Produce the type variables and assumptions for a query expression.
+-}
+queryTypeVars :: (MonadError AnnotateErr m, MonadAnnotate m, MonadFresh m) => QueryExprF (m (Tp TyVar)) -> m (Tp TyVar)
+queryTypeVars = \case
+  Select{sSelectList, sWhere, sHaving, sOffset, sFetchFirst} -> do
+    -- TODO: Where and Having should have type bool?
+    traverse_ (cataA typeVars) sWhere
+    traverse_ (cataA typeVars) sHaving
+
+    -- TODO: Offset and FetchFirst should have type Int?
+    traverse_ (cataA typeVars) sOffset
+    traverse_ (cataA typeVars) sFetchFirst
+
+    let -- | Extract the column name, throwing an error if there is no name
+        getCol (expr, nm) = maybe (throwError $ ColumnWithoutAlias $ SQL.Pretty.prettyScalarExpr SQL.Dialect.postgres expr) (pure . (expr,)) nm
+
+        -- | Collect annotations for the column type
+        getColType (expr, nm) = (nm,) <$> cataA typeVars expr
+
+    traverse getCol sSelectList >>= traverse getColType >>= mkRowVar
+  k -> throwError $ UnsupportedQuery (show $ void k)
+
+mkRowVar :: (MonadError AnnotateErr m, MonadFresh m) => [(Name, Tp TyVar)] -> m (Tp TyVar)
+mkRowVar entries = fmap TpRow . mkRow <$> freshVar <*> pure entries
