@@ -8,28 +8,32 @@ module EasyBI.Cli
   ( runCli
   ) where
 
-import Control.Exception              (bracket)
-import Control.Monad.Except           (MonadError (..), runExceptT)
-import Control.Monad.IO.Class         (MonadIO (..))
-import Data.Foldable                  (traverse_)
-import Data.Map.Strict                qualified as Map
-import Data.Text                      qualified as Text
-import Data.Text.IO                   qualified as Text.IO
-import EasyBI.Cli.Command             (Command (..), TimestampColumn (..),
-                                       commandParser)
-import EasyBI.MonadLog                (MonadLog, logInfo, logInfoS, logWarnS,
-                                       runMonadLogKatipT)
-import EasyBI.Sql.Types               (SqlType (STDateTime), rowFromSchema)
-import Katip                          qualified as K
-import Language.SQL.SimpleSQL.Dialect qualified as Dialect
-import Language.SQL.SimpleSQL.Parse   (ParseError (..))
-import Language.SQL.SimpleSQL.Parse   qualified as Parse
-import Language.SQL.SimpleSQL.Syntax  (Statement (..))
-import Options.Applicative            (customExecParser, disambiguate, helper,
-                                       idm, info, prefs, showHelpOnEmpty,
-                                       showHelpOnError)
-import System.Exit                    (exitFailure)
-import System.IO                      (stdout)
+import           Control.Exception              (bracket)
+import           Control.Monad.Except           (MonadError (..), runExceptT)
+import           Control.Monad.IO.Class         (MonadIO (..))
+import           Data.Foldable                  (traverse_)
+import qualified Data.Map.Strict                as Map
+import qualified Data.Text                      as Text
+import qualified Data.Text.IO                   as Text.IO
+import           EasyBI.Cli.Command             (Command (..),
+                                                 SchemaConfig (..),
+                                                 TimestampColumn (..),
+                                                 commandParser)
+import           EasyBI.MonadLog                (MonadLog, logInfo, logInfoS,
+                                                 logWarnS, runMonadLogKatipT)
+import           EasyBI.Sql.Types               (SqlType (STDateTime),
+                                                 rowFromSchema)
+import qualified Katip                          as K
+import qualified Language.SQL.SimpleSQL.Dialect as Dialect
+import           Language.SQL.SimpleSQL.Parse   (ParseError (..))
+import qualified Language.SQL.SimpleSQL.Parse   as Parse
+import           Language.SQL.SimpleSQL.Syntax  (Statement (..))
+import           Options.Applicative            (customExecParser, disambiguate,
+                                                 helper, idm, info, prefs,
+                                                 showHelpOnEmpty,
+                                                 showHelpOnError)
+import           System.Exit                    (exitFailure)
+import           System.IO                      (stdout)
 
 runCli :: IO ()
 runCli = do
@@ -54,7 +58,8 @@ data AppError =
 
 runCommand :: (MonadIO m, MonadLog m, MonadError AppError m) => Command -> m ()
 runCommand = \case
-  CheckSchema{sqlFile, timestampColumns} -> checkSchema sqlFile timestampColumns
+  CheckSchema SchemaConfig{scSqlFile, scTimestampColumns} -> checkSchema scSqlFile scTimestampColumns
+  
 
 checkSchema :: (MonadLog m, MonadIO m, MonadError AppError m) => FilePath -> [TimestampColumn] -> m ()
 checkSchema fp timestampColumns = do
