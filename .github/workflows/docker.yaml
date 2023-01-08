@@ -47,3 +47,6 @@ jobs:
             docker tag ${IMAGE_NAME}:unstable ${IMAGE_NAME}:${{github.ref_name}}
           docker images
           docker inspect ${IMAGE_NAME}:unstable
+
+      - name: Push image to container registry
+        run: docker push -a ${IMAGE_NAME}

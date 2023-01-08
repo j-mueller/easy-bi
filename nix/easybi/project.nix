@@ -15,7 +15,7 @@ let
   hsPkgs = pkgs.haskell-nix.project {
     # TODO: probably should use flake.nix inputs.self here
     src = pkgs.haskell-nix.haskellLib.cleanGit {
-      name = "hydra";
+      name = "easy-bi";
       src = ./../..;
     };
     projectFileName = "cabal.project";
