@@ -1,7 +1,7 @@
 {-# LANGUAGE DerivingStrategies #-}
 {-| Simple logging
 -}
-module EasyBI.MonadLog
+module EasyBI.Util.MonadLog
   ( MonadLog (..)
   , MonadLogIgnoreT (..)
   , MonadLogKatipT (..)
