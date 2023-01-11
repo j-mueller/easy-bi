@@ -270,24 +270,24 @@ identifier :: (MonadError AnnotateErr m, MonadFresh m, MonadAnnotate m) =>
 identifier []  = throwError EmptyIdentifier
 identifier [x] = bindVar (AnIdentifier [x])
 identifier xs = do
-  x <- mkAt [] xs
+  x <- mkAt xs
   tv <- TpVar <$> freshVar
   write ([(AnIdentifier xs, tv)], [TyEq tv x])
   pure x
 
 {-| Accessing a record
 -}
-mkAt :: (MonadError AnnotateErr m, MonadFresh m, MonadAnnotate m) => [Name] -> [Name] -> m (Tp TyVar)
-mkAt ys = \case
+mkAt :: (MonadError AnnotateErr m, MonadFresh m, MonadAnnotate m) => [Name] -> m (Tp TyVar)
+mkAt (reverse -> ys) = case ys of
   [] -> throwError EmptyIdentifier
   [_x] -> TpVar <$> freshVar
   -- c . y
-  (x : y : zs) -> do
-    fieldTp <- mkAt (x:ys) (y:zs)
+  (y : (reverse -> c)) -> do
     row0 <- freshVar
     k <- TpVar <$> freshVar
+    fieldTp <- TpVar <$> freshVar
     let recType = TpRow $ mkRow row0 [(y, fieldTp)]
-    write ([(AnIdentifier (x:ys), k)], [TyEq k recType])
+    write ([(AnIdentifier c, k)], [TyEq k recType])
     pure fieldTp
 
 writeEquals :: MonadAnnotate m => Tp TyVar -> Tp TyVar -> m ()

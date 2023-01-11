@@ -25,3 +25,19 @@ CREATE TABLE sales(
   "CONTACTFIRSTNAME" TEXT,
   "DEALSIZE" TEXT
 );
+
+CREATE VIEW total_sales AS
+  SELECT SUM(sales.QUANTITYORDERED * sales.PRICEEACH) as totalSales
+  FROM sales
+
+CREATE VIEW total_sales_by_country AS
+  SELECT
+    SUM(sales."QUANTITYORDERED" * sales."PRICEEACH") as totalSales,
+    sales."COUNTRY" as country
+  FROM sales
+  GROUP BY country
+
+CREATE VIEW sales_fail AS
+  SELECT
+    SUM(sales."QUANTITYORDERED" * sales."ADDRESSLINE2") as totalSales
+  FROM sales

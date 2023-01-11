@@ -23,6 +23,7 @@ module EasyBI.Sql.Effects.Types
   , freeVarsS
   , fromList
   , fromTypeName
+  , generalise
   , insertRow
   , mkRow
   , singleton
@@ -98,6 +99,10 @@ data Tp v =
   | TpVar v
   deriving stock (Eq, Show, Foldable, Functor, Traversable)
 
+generalise :: Tp v -> TyScheme v (Tp v)
+generalise tp =
+  TyScheme (freeVars tp) tp
+
 instance Pretty v => Pretty (Tp v) where
   pretty = \case
     TpSql t   -> pretty t
@@ -144,12 +149,12 @@ instance Pretty SqlType where
 {-| The set of free type variables of a type @t@ is denoted by @freevars t@ and simply
 consists of all type variables in @t@.
 -}
-freeVars :: Foldable f => f v -> [v]
+freeVars :: Tp v -> [v]
 freeVars = toList
 
 {-| Free variables in a type scheme
 -}
-freeVarsS :: (Foldable f, Ord v) => TyScheme v (f v) -> [v]
+freeVarsS :: (Ord v) => TyScheme v (Tp v) -> [v]
 freeVarsS (TyScheme (Set.fromList -> s) t) =
   filter (\t' -> not (t' `Set.member` s)) (freeVars t)
 
@@ -229,7 +234,7 @@ applyRow s@Substitution{subsType} (RowType (TpVar v) mp) =
     -- TODO: Is this the right thing to do?
     Just (TpRow (RowType v'' mp')) -> applyRow (delete v s) (RowType v'' $ Map.unionWith (\a b -> error $ "applyRow: error " <> show a <> " - " <> show b) mp mp')
     Just (TpVar v') -> applyRow (delete v s) (RowType (TpVar v') mp)
-    Just t -> error $ "applyRow: found unxpected type " <> show t
+    Just t -> error $ "applyRow: found unexpected type " <> show t
 applyRow _ (RowType t _) = error $ "applyRow: Unexpected type in row: " <> show t
 
 {-| Composition of two substitutions
@@ -246,6 +251,7 @@ comp (Substitution s2) (Substitution s1) =
       }
 
 newtype TypeEnv = TypeEnv { unTypeEnv :: Map SqlVar (TyScheme TyVar (Tp TyVar)) }
+  deriving newtype (Semigroup, Monoid)
 
 data InferenceLog =
   Instantiate (TyScheme TyVar (Tp TyVar)) (Tp TyVar)
