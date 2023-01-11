@@ -19,14 +19,14 @@ import Data.Text                      qualified as Text
 import Data.Text.IO                   qualified as Text.IO
 import EasyBI.Cli.Command             (Command (..), SchemaConfig (..),
                                        TimestampColumn (..), commandParser)
-import EasyBI.MonadLog                (MonadLog, logInfo', logInfoS, logWarn,
-                                       logWarnS, runMonadLogKatipT)
 import EasyBI.Sql.BuiltinTypes        (defaultTypeEnv)
 import EasyBI.Sql.Catalog             (tables, views)
 import EasyBI.Sql.Class               (render, runInferType)
 import EasyBI.Sql.Types               (SqlType (STDateTime),
                                        SqlVar (AnIdentifier), TypeEnv (..),
                                        rowFromSchema)
+import EasyBI.Util.MonadLog           (MonadLog, logInfo', logInfoS, logWarn,
+                                       logWarnS, runMonadLogKatipT)
 import Katip                          qualified as K
 import Language.SQL.SimpleSQL.Dialect qualified as Dialect
 import Language.SQL.SimpleSQL.Parse   (ParseError (..))

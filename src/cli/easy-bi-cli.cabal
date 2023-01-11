@@ -32,7 +32,11 @@ library
     EasyBI.Cli
     EasyBI.Cli.Command
     EasyBI.Cli.Config
-    EasyBI.MonadLog
+    EasyBI.Util.MonadLog
+    EasyBI.Util.NiceHash
+    EasyBI.Server.API
+    EasyBI.Server.View
+    EasyBI.Server
 
   build-depends:
     easy-bi-sql
@@ -47,7 +51,16 @@ library
     optparse-applicative,
     simple-sql-parser,
     containers,
-    lens
+    lens,
+    bytestring,
+    hex-text,
+    binary,
+    aeson,
+    http-api-data,
+    serialise,
+    deepseq,
+    cryptohash,
+    servant
 
 executable easy-bi
   import: lang
