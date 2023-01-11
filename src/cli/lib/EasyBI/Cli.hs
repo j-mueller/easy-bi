@@ -8,32 +8,36 @@ module EasyBI.Cli
   ( runCli
   ) where
 
-import           Control.Exception              (bracket)
-import           Control.Monad.Except           (MonadError (..), runExceptT)
-import           Control.Monad.IO.Class         (MonadIO (..))
-import           Data.Foldable                  (traverse_)
-import qualified Data.Map.Strict                as Map
-import qualified Data.Text                      as Text
-import qualified Data.Text.IO                   as Text.IO
-import           EasyBI.Cli.Command             (Command (..),
-                                                 SchemaConfig (..),
-                                                 TimestampColumn (..),
-                                                 commandParser)
-import           EasyBI.MonadLog                (MonadLog, logInfo, logInfoS,
-                                                 logWarnS, runMonadLogKatipT)
-import           EasyBI.Sql.Types               (SqlType (STDateTime),
-                                                 rowFromSchema)
-import qualified Katip                          as K
-import qualified Language.SQL.SimpleSQL.Dialect as Dialect
-import           Language.SQL.SimpleSQL.Parse   (ParseError (..))
-import qualified Language.SQL.SimpleSQL.Parse   as Parse
-import           Language.SQL.SimpleSQL.Syntax  (Statement (..))
-import           Options.Applicative            (customExecParser, disambiguate,
-                                                 helper, idm, info, prefs,
-                                                 showHelpOnEmpty,
-                                                 showHelpOnError)
-import           System.Exit                    (exitFailure)
-import           System.IO                      (stdout)
+import Control.Exception              (bracket)
+import Control.Lens                   (at, use, (.=))
+import Control.Monad.Except           (MonadError (..), runExceptT)
+import Control.Monad.IO.Class         (MonadIO (..))
+import Control.Monad.State.Strict     (evalStateT)
+import Data.Foldable                  (traverse_)
+import Data.Map.Strict                qualified as Map
+import Data.Text                      qualified as Text
+import Data.Text.IO                   qualified as Text.IO
+import EasyBI.Cli.Command             (Command (..), SchemaConfig (..),
+                                       TimestampColumn (..), commandParser)
+import EasyBI.MonadLog                (MonadLog, logInfo', logInfoS, logWarn,
+                                       logWarnS, runMonadLogKatipT)
+import EasyBI.Sql.BuiltinTypes        (defaultTypeEnv)
+import EasyBI.Sql.Catalog             (tables, views)
+import EasyBI.Sql.Class               (render, runInferType)
+import EasyBI.Sql.Types               (SqlType (STDateTime),
+                                       SqlVar (AnIdentifier), TypeEnv (..),
+                                       rowFromSchema)
+import Katip                          qualified as K
+import Language.SQL.SimpleSQL.Dialect qualified as Dialect
+import Language.SQL.SimpleSQL.Parse   (ParseError (..))
+import Language.SQL.SimpleSQL.Parse   qualified as Parse
+import Language.SQL.SimpleSQL.Syntax  (Statement (..))
+import Options.Applicative            (customExecParser, disambiguate, helper,
+                                       idm, info, prefs, showHelpOnEmpty,
+                                       showHelpOnError)
+import Prettyprinter                  (pretty, (<+>))
+import System.Exit                    (exitFailure)
+import System.IO                      (stdout)
 
 runCli :: IO ()
 runCli = do
@@ -58,8 +62,7 @@ data AppError =
 
 runCommand :: (MonadIO m, MonadLog m, MonadError AppError m) => Command -> m ()
 runCommand = \case
-  CheckSchema SchemaConfig{scSqlFile, scTimestampColumns} -> checkSchema scSqlFile scTimestampColumns
-  
+  CheckTypes SchemaConfig{scSqlFile, scTimestampColumns} -> checkSchema scSqlFile scTimestampColumns
 
 checkSchema :: (MonadLog m, MonadIO m, MonadError AppError m) => FilePath -> [TimestampColumn] -> m ()
 checkSchema fp timestampColumns = do
@@ -68,9 +71,19 @@ checkSchema fp timestampColumns = do
       typeOverrides = Map.fromList $ fmap mkCol timestampColumns
   txt <- Text.unpack <$> liftIO (Text.IO.readFile fp)
   statements <- either (throwError . SqlParseError) pure (Parse.parseStatements Dialect.postgres fp Nothing txt)
-  flip traverse_ statements $ \case
+  flip evalStateT mempty $ flip traverse_ statements $ \case
     CreateTable names elements -> do
       logInfoS ("Create table " <> show names)
       let tp = rowFromSchema elements typeOverrides
-      logInfo tp
+      tables . at (AnIdentifier names) .= Just tp
+    CreateView _ names _ queryExpr _ -> do
+      logInfoS ("Create view " <> show names)
+      tyEnv <- TypeEnv <$> use tables
+      case runInferType (tyEnv <> defaultTypeEnv) queryExpr of
+        Left err -> do
+          logWarnS $ "Type inference failed for '" <> render Dialect.postgres queryExpr <> "'"
+          logWarn err
+        Right (_, tp, _) -> do
+          logInfo' $ "Inferred type:" <+> pretty tp
+          views . at names .= Just (queryExpr, tp)
     _ -> logWarnS "Ignoring unexpected SQL statement"

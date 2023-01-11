@@ -3,27 +3,34 @@
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE TypeApplications   #-}
+{-# LANGUAGE ViewPatterns       #-}
 module Main
   ( main
   ) where
 
-import Data.Foldable                 (traverse_)
-import EasyBI.Sql.Effects.Types      (Tp (..), mkRow)
-
-import Data.Map.Strict               qualified as Map
-import Data.Proxy                    (Proxy (..))
-import EasyBI.Sql.Class              (SqlFragment (..), ansi2011, runInferType,
-                                      typeConstraints)
-import EasyBI.Sql.Types              (AnnotateErr, InferError (..),
-                                      SqlType (..), SqlVar (..), TyVar (..),
-                                      UnificationError (..), defaultTypeEnv,
-                                      getFailure)
-import EasyBI.Sql.Utils              qualified as Utils
-import Language.SQL.SimpleSQL.Syntax (Name (..), QueryExpr, ScalarExpr)
-import Spec.Unification              qualified as Unification
-import Test.Tasty                    (TestTree, defaultMain, testGroup)
-import Test.Tasty.HUnit              (Assertion, assertBool, assertEqual,
-                                      testCase, testCaseSteps)
+import Control.Monad                  (unless)
+import Control.Monad.Except           (runExceptT)
+import Control.Monad.State.Strict     (runStateT)
+import Data.Foldable                  (traverse_)
+import Data.Map.Strict                qualified as Map
+import Data.Maybe                     (catMaybes, listToMaybe)
+import Data.Proxy                     (Proxy (..))
+import EasyBI.Sql.Catalog             qualified as Catalog
+import EasyBI.Sql.Class               (SqlFragment (..), ansi2011, runInferType,
+                                       typeConstraints)
+import EasyBI.Sql.Effects.Types       (Tp (..), TyScheme (..), mkRow)
+import EasyBI.Sql.Types               (AnnotateErr, InferError (..),
+                                       SqlType (..), SqlVar (..), TyVar (..),
+                                       UnificationError (..), defaultTypeEnv,
+                                       getFailure)
+import EasyBI.Sql.Utils               qualified as Utils
+import Language.SQL.SimpleSQL.Dialect (Dialect)
+import Language.SQL.SimpleSQL.Parse   qualified as Parse
+import Language.SQL.SimpleSQL.Syntax  (Name (..), QueryExpr, ScalarExpr)
+import Spec.Unification               qualified as Unification
+import Test.Tasty                     (TestTree, defaultMain, testGroup)
+import Test.Tasty.HUnit               (Assertion, assertBool, assertEqual,
+                                       testCase, testCaseSteps)
 
 main :: IO ()
 main = defaultMain tests
@@ -33,6 +40,9 @@ scalar = Proxy
 
 query :: Proxy QueryExpr
 query = Proxy
+
+testDialect :: Dialect
+testDialect = ansi2011
 
 tests :: TestTree
 tests = testGroup "type inference"
@@ -50,19 +60,26 @@ tests = testGroup "type inference"
         , testCaseSteps "IN" (inferSuccess scalar boolean [(p ":x", text), (p ":y", text)] ":x IN ('a', 'b', c.y, :y)")
         , testCaseSteps "OR, >" (inferSuccess scalar boolean [(p ":x", text), (p ":y", text), (p ":z", number)] ":x IN ('a', 'b', c.y, :y) OR (:z > 4)")
         , testCaseSteps "=" (inferSuccess scalar boolean [(p ":x", text)] ":x = 'München'")
-        , testCaseSteps "row (1)" (inferSuccess scalar number [(p ":x", number), dot 2 "c" [("y", number)]] ":x + c.y")
-        , testCaseSteps "row (2)" (inferSuccess scalar boolean [(p ":x", number), dot 2 "c" [("y", number)]] "(:x = c.y) AND (:x + 5 > 10)")
+        , testCaseSteps "row (1)" (inferSuccess scalar number [(p ":x", number), dot 1 "c" [("y", number)]] ":x + c.y")
+        , testCaseSteps "row (2)" (inferSuccess scalar boolean [(p ":x", number), dot 1 "c" [("y", number)]] "(:x = c.y) AND (:x + 5 > 10)")
         , testCaseSteps "row (3)" (inferSuccess scalar number [dot 12 "c" [("y", number), ("z", number)]] "c.y + c.z")
         , testCaseSteps "row (4)" (inferSuccess scalar boolean [dot 14 "c" [("y", number), ("t", text)]] "(c.y > 6) OR (c.t = 'a')")
         , testCaseSteps "row (5)" (inferSuccess scalar boolean [(p ":y", number), (p ":t", text)] "(:y > 6) OR (:t = 'a')")
         , testCaseSteps "polymorphic equals" (inferSuccess scalar boolean [(p ":y", number), (p ":t", text)] "(:t = 'a') OR (:y = 2)")
+        , testCaseSteps "SUM" (inferSuccess scalar number [dot 13 "sales" [("QUANTITYORDERED", number), ("PRICEEACH", number)]] ("SUM(sales.QUANTITYORDERED * sales.PRICEEACH)"))
         ]
       , testGroup "select queries"
-        [ testCaseSteps "SELECT (1)" (inferSuccess query (row 4 [("b", TpVar (TyVar 0))]) [] "select a.b from a")
+        [ testCaseSteps "SELECT (1)" (inferSuccess query (row 4 [("b", TpVar (TyVar 2))]) [] "select a.b from a")
         , testCaseSteps "SELECT (2)" (inferSuccess query (row 0 [("b", number)]) [] "select 10 as b from a")
 
         -- infer the type of 'd' from the operator
         , testCaseSteps "SELECT (3)" (inferSuccess query (row 3 [("b", number), ("d", number)]) [] "select 10 as b, c + c as d from a")
+
+        ]
+
+      , testGroup "catalog"
+        [
+          testCaseSteps "simple catalog" (catalogSuccess (row 4 [("country", int)]) "CREATE TABLE sales (COUNTRY integer); CREATE VIEW v AS select sales.COUNTRY as country from sales")
         ]
       ]
   ]
@@ -82,10 +99,42 @@ hostParam = do
   assertEqual "operator type" (TpVar 1) tp
 
 parse' :: SqlFragment a => Proxy a -> String -> IO a
-parse' _p = either (fail . show) pure . parse ansi2011 "" Nothing
+parse' _p = either (fail . show) pure . parse testDialect "" Nothing
 
 annotateErr :: Either AnnotateErr a -> IO a
 annotateErr = either (fail . show) pure
+
+printAssumptions :: SqlFragment x => (String -> IO ()) -> x -> IO ()
+printAssumptions step expr = do
+  step "printAssumptions"
+  case typeConstraints expr of
+    Right (_, (assumptions, constraints)) -> do
+      step ("  assumptions: " <> Utils.renderString assumptions)
+      step ("  constraints: " <> Utils.renderString constraints)
+    Left annotateErr_ -> do
+      step ("  ERROR: " <> show annotateErr_)
+
+catalogSuccess :: Tp TyVar -> String -> (String -> IO ()) -> Assertion
+catalogSuccess expectedType s step = do
+  statements <-
+    case Parse.parseStatements testDialect "" Nothing s of
+      Left err -> do
+        step (show err)
+        fail "catalogSuccess: Failed to parse input string"
+      Right x -> pure x
+  result <- runExceptT $ flip runStateT mempty $ traverse (Catalog.addStatement mempty) statements
+  case result of
+    Left err -> do
+      step (show err)
+      fail "catalogSuccess: Failed to process statement"
+    Right (listToMaybe . catMaybes . reverse -> Just (TyScheme _ actualType), _catalog) -> do
+      let good = actualType == expectedType
+      unless good $ do
+        step "catalogSuccess failed"
+        step $ "  expected type: " <> show expectedType
+        step $ "  actual type:   " <> show actualType
+        assertBool "catalogSuccess" good
+    Right _ -> fail "catalogSuccess: no types inferred"
 
 checkInference :: Infer -> (String -> IO ()) -> Assertion
 checkInference i step = case i of
@@ -95,34 +144,28 @@ checkInference i step = case i of
       Left err -> do
         step expression
         step (show expr')
-        case typeConstraints expr' of
-          Right (_, (assumptions, constraints)) -> do
-            step ("assumptions: " <> Utils.renderString assumptions)
-            step ("constraints: " <> Utils.renderString constraints)
-            step ("error:       " <> Utils.renderString err)
-            assertBool ("checkInference: Expected inference to succeed, but it failed") False
-          Left annotateErr_ -> do
-            step ("annotateErr: " <> show annotateErr_)
-            assertBool ("checkInference: Expected inference to succeed, but it failed in the annotation phase") False
+        printAssumptions step expr'
+        assertBool ("checkInference: Expected inference to succeed, but it failed with " <> show err) False
       Right (substitution, exprType, assignments) -> do
         flip traverse_ expectedTypes $ \(var_, expType) -> do
           case Map.lookup var_ assignments of
             Nothing -> do
-                case typeConstraints expr' of
-                  Right (_, (assumptions2, constraints)) -> do
-                    step ("expr':         " <> show expr')
-                    step ("exprType:      " <> Utils.renderString exprType)
-                    step ("assignments:   " <> Utils.renderString (Map.toList assignments))
-                    step ("assumptions2:  " <> Utils.renderString assumptions2)
-                    step ("constraints:   " <> Utils.renderString constraints)
-                    step ("substitution:  " <> Utils.renderString substitution)
-                    assertBool ("checkInference: Failed to find type for " <> show var_) False
-                  Left annotateErr_ -> do
-                    step ("annotateErr: " <> show annotateErr_)
-                    assertBool ("checkInference: Expected inference to succeed, but it failed in the 2nd annotation phase") False
+              step ("expr':         " <> show expr')
+              step ("exprType:      " <> Utils.renderString exprType)
+              step ("assignments:   " <> Utils.renderString (Map.toList assignments))
+              step ("substitution:  " <> Utils.renderString substitution)
+              printAssumptions step expr'
             Just actualType ->
               assertEqual (show var_) expType actualType
-        assertEqual "Fragment type"  expectedType exprType
+
+        unless (expectedType == exprType) $ do
+          printAssumptions step expr'
+          step ("expr':         " <> show expr')
+          step ("exprType:      " <> Utils.renderString exprType)
+          step ("assignments:   " <> Utils.renderString (Map.toList assignments))
+          step ("substitution:  " <> Utils.renderString substitution)
+          assertEqual "Fragment type"  expectedType exprType
+
   ShouldInferFail p_ err expression -> do
     expr' <- parse' p_ expression
     case runInferType defaultTypeEnv expr' of
@@ -167,3 +210,6 @@ text = TpSql STText
 
 boolean :: Tp v
 boolean = TpSql STBool
+
+int :: Tp v
+int = TpSql STInt

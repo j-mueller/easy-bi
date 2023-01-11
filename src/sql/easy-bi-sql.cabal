@@ -30,6 +30,7 @@ library
     lib
   exposed-modules:
     EasyBI.Sql.BuiltinTypes
+    EasyBI.Sql.Catalog
     EasyBI.Sql.Class
     EasyBI.Sql.Effects.Annotate
     EasyBI.Sql.Effects.Fresh

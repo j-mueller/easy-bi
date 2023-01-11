@@ -46,7 +46,8 @@ library
     exceptions,
     optparse-applicative,
     simple-sql-parser,
-    containers
+    containers,
+    lens
 
 executable easy-bi
   import: lang
