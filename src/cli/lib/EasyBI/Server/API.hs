@@ -2,7 +2,7 @@
 {-# LANGUAGE TypeOperators #-}
 module EasyBI.Server.API
   ( API
-  , Hashed
+  , WithHash
   ) where
 
 import EasyBI.Server.View   (View)

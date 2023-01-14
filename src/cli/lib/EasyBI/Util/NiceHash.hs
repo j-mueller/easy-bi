@@ -25,6 +25,7 @@ module EasyBI.Util.NiceHash
   , Hashed
   , Plain
   , hHash
+  , hNiceHash
   ) where
 
 import Codec.Serialise          (Serialise (..), serialise)
@@ -109,6 +110,11 @@ hHash :: HasNiceHash a => Hashable a h -> Hashable a Hashed
 hHash = \case
   HHash h  -> HHash h
   HPlain x -> HHash (niceHash x)
+
+hNiceHash :: HasNiceHash a => Hashable a h -> NiceHash a
+hNiceHash k =
+  let HHash r = hHash k
+  in r
 
 data TestData = TestData{ a :: String, b :: Int}
   deriving stock (Eq, Ord, Show, Generic)

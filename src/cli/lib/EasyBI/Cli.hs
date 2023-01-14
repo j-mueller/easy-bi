@@ -63,6 +63,9 @@ data AppError =
 runCommand :: (MonadIO m, MonadLog m, MonadError AppError m) => Command -> m ()
 runCommand = \case
   CheckTypes SchemaConfig{scSqlFile, scTimestampColumns} -> checkSchema scSqlFile scTimestampColumns
+  StartServer _schemaConfig _serverConfig -> do
+    logWarnS "start-server: not implemented"
+    pure ()
 
 checkSchema :: (MonadLog m, MonadIO m, MonadError AppError m) => FilePath -> [TimestampColumn] -> m ()
 checkSchema fp timestampColumns = do

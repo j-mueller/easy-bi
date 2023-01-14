@@ -3,6 +3,7 @@
 {-# LANGUAGE DerivingStrategies   #-}
 {-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE LambdaCase           #-}
+{-# LANGUAGE NamedFieldPuns       #-}
 {-# LANGUAGE OverloadedStrings    #-}
 {-# LANGUAGE TypeApplications     #-}
 {-# LANGUAGE TypeFamilies         #-}
@@ -12,13 +13,14 @@ module EasyBI.Server.View
   , WrappedObject (..)
   , WrappedQueryExpr (..)
   , hashView
+  , queryExpr
   ) where
 
 import Codec.Serialise                (Serialise (..))
 import Data.Aeson                     (FromJSON (..), Object, ToJSON (..))
 import Data.Aeson                     qualified as Aeson
 import Data.Text                      qualified as Text
-import EasyBI.Util.NiceHash           (HasNiceHash (..), Hashable, Hashed,
+import EasyBI.Util.NiceHash           (HasNiceHash (..), Hashable (..), Hashed,
                                        Plain, hHash)
 import GHC.Generics                   (Generic)
 import Language.SQL.SimpleSQL.Dialect qualified as Dialect
@@ -47,6 +49,9 @@ deriving instance Serialise (View Plain)
 
 hashView :: View h -> View Hashed
 hashView view = view{vQuery = hHash (vQuery view)}
+
+queryExpr :: View Plain -> WrappedQueryExpr
+queryExpr View{vQuery} = let HPlain a = vQuery in a
 
 instance Serialise WrappedQueryExpr where
   encode (WrappedQueryExpr e) = encode (Pretty.prettyQueryExpr Dialect.postgres e)
@@ -79,5 +84,5 @@ instance FromJSON WrappedQueryExpr where
 instance HasNiceHash WrappedQueryExpr where
   type Name WrappedQueryExpr = "query"
 
-instance HasNiceHash (View Plain) where
-  type Name (View Plain) = "view"
+instance HasNiceHash (View Hashed) where
+  type Name (View Hashed) = "view"

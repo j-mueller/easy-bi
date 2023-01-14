@@ -5,8 +5,9 @@ module EasyBI.Cli.Command
   , commandParser
   ) where
 
-import Options.Applicative (Parser, command, fullDesc, help, info, long, many,
-                            progDesc, strOption, subparser)
+import EasyBI.Server.Impl  (ServerConfig (..))
+import Options.Applicative (Parser, auto, command, fullDesc, help, info, long,
+                            many, option, progDesc, strOption, subparser, value)
 
 newtype TimestampColumn = TimestampColumn{ unTimestampColumn :: String }
   deriving (Eq, Ord, Show)
@@ -26,6 +27,7 @@ parseSchemaConfig =
 
 data Command =
   CheckTypes SchemaConfig
+  | StartServer SchemaConfig ServerConfig
   deriving (Eq, Ord, Show)
 
 commandParser :: Parser Command
@@ -33,7 +35,16 @@ commandParser =
   subparser $
     mconcat
       [ command "check-types" (info checkTypes (fullDesc <> progDesc "Read a file with SQL CREATE TABLE statements and check the schema"))
+      , command "start-server" (info startServer (fullDesc <> progDesc "Start the EasyBI server using the provided schema"))
       ]
 
 checkTypes :: Parser Command
 checkTypes = CheckTypes <$> parseSchemaConfig
+
+startServer :: Parser Command
+startServer = StartServer <$> parseSchemaConfig <*> parseServerConfig
+
+parseServerConfig :: Parser ServerConfig
+parseServerConfig =
+  ServerConfig
+    <$> option auto (long "port" <> value 8080 <> help "Server port")
