@@ -35,6 +35,8 @@ library
     EasyBI.Util.MonadLog
     EasyBI.Util.NiceHash
     EasyBI.Server.API
+    EasyBI.Server.Impl
+    EasyBI.Server.State
     EasyBI.Server.View
     EasyBI.Server
 
@@ -60,7 +62,9 @@ library
     serialise,
     deepseq,
     cryptohash,
-    servant
+    servant,
+    servant-server,
+    warp
 
 executable easy-bi
   import: lang
