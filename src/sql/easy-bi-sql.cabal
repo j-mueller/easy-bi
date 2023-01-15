@@ -22,7 +22,7 @@ common lang
                       ExistentialQuantification
     ghc-options: -Wall -Wnoncanonical-monad-instances
                  -Wincomplete-uni-patterns -Wincomplete-record-updates
-                 -Wredundant-constraints -Widentities
+                 -Wredundant-constraints -Widentities -Wunused-packages
 
 library
   import: lang
