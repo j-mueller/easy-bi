@@ -26,6 +26,7 @@ module EasyBI.Util.NiceHash
   , Plain
   , hHash
   , hNiceHash
+  , hPlain
   ) where
 
 import Codec.Serialise          (Serialise (..), serialise)
@@ -37,6 +38,7 @@ import Data.ByteString.Lazy     qualified as BSL
 import Data.Proxy               (Proxy (..))
 import Data.Text                (Text)
 import Data.Text                qualified as Text
+import EasyBI.Sql.Catalog       (TypedQueryExpr (..))
 import GHC.Generics             (Generic)
 import GHC.TypeLits             (KnownSymbol, Symbol, symbolVal)
 import Prettyprinter            (Pretty (..))
@@ -106,6 +108,9 @@ instance FromJSON (Hashable a Hashed) where
 
 deriving stock instance Show a => Show (Hashable a h)
 
+hPlain :: a -> Hashable a Plain
+hPlain = HPlain
+
 hHash :: HasNiceHash a => Hashable a h -> Hashable a Hashed
 hHash = \case
   HHash h  -> HHash h
@@ -122,3 +127,5 @@ data TestData = TestData{ a :: String, b :: Int}
   deriving HasNiceHash via (NiceHashable "test" TestData)
 
 deriving via (NiceHashable "text" Text) instance HasNiceHash Text
+
+deriving via (NiceHashable "typed_query" TypedQueryExpr) instance HasNiceHash TypedQueryExpr

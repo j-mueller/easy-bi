@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveAnyClass     #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE LambdaCase         #-}
 {-# LANGUAGE NamedFieldPuns     #-}
@@ -29,12 +30,15 @@ module EasyBI.Sql.Effects.Types
   , singleton
   ) where
 
+import Codec.Serialise               (Serialise)
+import Data.Aeson                    (FromJSON, ToJSON)
 import Data.Char                     (toLower)
 import Data.Foldable                 (toList)
 import Data.Map.Strict               (Map)
 import Data.Map.Strict               qualified as Map
 import Data.Set                      qualified as Set
 import EasyBI.Sql.Syntax             ()
+import GHC.Generics                  (Generic)
 import Language.SQL.SimpleSQL.Syntax (Name (..), TypeName (..))
 import Prettyprinter                 (Doc, Pretty (..), comma, concatWith,
                                       viaShow, (<+>))
@@ -43,7 +47,7 @@ import Prettyprinter                 (Doc, Pretty (..), comma, concatWith,
 -}
 newtype TyVar = TyVar Int
   deriving stock (Eq, Ord, Show)
-  deriving newtype Num
+  deriving newtype (Num, Serialise, ToJSON, FromJSON)
 
 instance Pretty TyVar where
   pretty (TyVar v) = "v" <> pretty v
@@ -77,7 +81,8 @@ prettyName (Name (Just (a, b)) nm) = pretty a <> pretty nm <> pretty b
 {-| Row type with a type variable for the "rest of the row"
 -}
 data RowType v = RowType (Tp v) (Map Name (Tp v))
-  deriving stock (Eq, Show, Foldable, Functor, Traversable)
+  deriving stock (Eq, Show, Foldable, Functor, Traversable, Generic)
+  deriving anyclass (Serialise, ToJSON, FromJSON)
 
 instance Pretty v => Pretty (RowType v) where
   pretty = \case
@@ -97,7 +102,8 @@ data Tp v =
   | TpRow (RowType v)
   | TpArr (Tp v) (Tp v)
   | TpVar v
-  deriving stock (Eq, Show, Foldable, Functor, Traversable)
+  deriving stock (Eq, Show, Foldable, Functor, Traversable, Generic)
+  deriving anyclass (Serialise, ToJSON, FromJSON)
 
 generalise :: Tp v -> TyScheme v (Tp v)
 generalise tp =
@@ -118,7 +124,8 @@ data SqlType =
   | STDateTime -- ^ Timestamp date+time
   | STInterval
   | STOtherSqlType TypeName
-  deriving stock (Eq, Show)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (Serialise, ToJSON, FromJSON)
 
 fromTypeName :: TypeName -> SqlType
 fromTypeName = \case
@@ -133,6 +140,9 @@ knownName (fmap toLower -> x) = Map.lookup x tps where
     [ ("text", STText)
     , ("integer", STInt)
     , ("numeric", STNumber)
+
+    -- postgres
+    , ("boolean", STBool)
     ]
 
 

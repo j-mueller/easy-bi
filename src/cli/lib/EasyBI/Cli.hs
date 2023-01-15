@@ -20,7 +20,7 @@ import Data.Text.IO                   qualified as Text.IO
 import EasyBI.Cli.Command             (Command (..), SchemaConfig (..),
                                        TimestampColumn (..), commandParser)
 import EasyBI.Sql.BuiltinTypes        (defaultTypeEnv)
-import EasyBI.Sql.Catalog             (tables, views)
+import EasyBI.Sql.Catalog             (TypedQueryExpr (..), tables, views)
 import EasyBI.Sql.Class               (render, runInferType)
 import EasyBI.Sql.Types               (SqlType (STDateTime),
                                        SqlVar (AnIdentifier), TypeEnv (..),
@@ -88,5 +88,5 @@ checkSchema fp timestampColumns = do
           logWarn err
         Right (_, tp, _) -> do
           logInfo' $ "Inferred type:" <+> pretty tp
-          views . at names .= Just (queryExpr, tp)
+          views . at names .= Just (TypedQueryExpr queryExpr tp)
     _ -> logWarnS "Ignoring unexpected SQL statement"

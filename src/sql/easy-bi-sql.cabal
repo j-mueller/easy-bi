@@ -50,6 +50,8 @@ library
     , lens
     , prettyprinter
     , text
+    , serialise
+    , aeson
 
 test-suite easy-bi-sql-test
   import: lang
