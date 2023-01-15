@@ -1,26 +1,40 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE LambdaCase       #-}
-{-# LANGUAGE NamedFieldPuns   #-}
-{-# LANGUAGE TemplateHaskell  #-}
+{-# LANGUAGE DeriveAnyClass     #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE FlexibleContexts   #-}
+{-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE NamedFieldPuns     #-}
+{-# LANGUAGE TemplateHaskell    #-}
 {-| Information about a database
 -}
 module EasyBI.Sql.Catalog
   ( Catalog (..)
+  , TypedQueryExpr (..)
   , addStatement
   , inferTypeCat
   , tables
   , views
   ) where
 
+import Codec.Serialise               (Serialise)
 import Control.Lens                  (at, makeLenses, (.=))
 import Control.Monad.Except          (MonadError (throwError))
 import Control.Monad.State.Strict    (MonadState, get)
+import Data.Aeson                    (FromJSON, ToJSON)
 import Data.Map.Strict               (Map)
 import EasyBI.Sql.Class              (SqlFragment, runInferType)
 import EasyBI.Sql.Effects.Types      (SqlType, SqlVar (..), Tp, TyScheme, TyVar,
                                       TypeEnv (..), generalise)
 import EasyBI.Sql.Types              (InferError, defaultTypeEnv, rowFromSchema)
+import GHC.Generics                  (Generic)
 import Language.SQL.SimpleSQL.Syntax (Name, QueryExpr, Statement (..))
+
+data TypedQueryExpr =
+  TypedQueryExpr
+    { teQuery :: QueryExpr
+    , teType  :: Tp TyVar
+    }
+    deriving stock (Eq, Show, Generic)
+    deriving anyclass (Serialise, ToJSON, FromJSON)
 
 {-| List of database objects that we know about
 -}
@@ -35,7 +49,7 @@ data Catalog =
     -- They are predefined SQL queries that can be used
     -- as the basis for views in the UI.
     -- They don't correspond to actual database views.
-    , _views :: Map [Name] (QueryExpr, Tp TyVar)
+    , _views :: Map [Name] TypedQueryExpr
     }
 
 makeLenses ''Catalog
@@ -67,8 +81,8 @@ addStatement typeOverrides = \case
     let tp = rowFromSchema elements typeOverrides
     tables . at (AnIdentifier names) .= Just tp
     pure (Just tp)
-  CreateView _ names _ queryExpr _ -> do
-    tp <- get >>= flip inferTypeCat queryExpr
-    views . at names .= Just (queryExpr, tp)
-    pure (Just $ generalise tp)
+  CreateView _ names _ teQuery _ -> do
+    teType <- get >>= flip inferTypeCat teQuery
+    views . at names .= Just TypedQueryExpr{teQuery, teType}
+    pure (Just $ generalise teType)
   _ -> pure Nothing
