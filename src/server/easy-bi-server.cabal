@@ -30,7 +30,6 @@ library
     lib
   exposed-modules:
     EasyBI.Server.API
-    EasyBI.Server.Impl
     EasyBI.Server.State
     EasyBI.Server.View
     EasyBI.Server
