@@ -22,7 +22,7 @@ common lang
                       ExistentialQuantification
     ghc-options: -Wall -Wnoncanonical-monad-instances
                  -Wincomplete-uni-patterns -Wincomplete-record-updates
-                 -Wredundant-constraints -Widentities
+                 -Wredundant-constraints -Widentities -Wunused-packages
 
 library
   import: lang
@@ -32,39 +32,21 @@ library
     EasyBI.Cli
     EasyBI.Cli.Command
     EasyBI.Cli.Config
-    EasyBI.Util.MonadLog
-    EasyBI.Util.NiceHash
-    EasyBI.Server.API
-    EasyBI.Server.Impl
-    EasyBI.Server.State
-    EasyBI.Server.View
-    EasyBI.Server
 
   build-depends:
-    easy-bi-sql
+    easy-bi-sql,
+    easy-bi-server
+  
   build-depends:
     base >=4.16.4 && <4.17,
     mtl,
     katip,
     prettyprinter,
-    transformers,
     text,
-    exceptions,
     optparse-applicative,
     simple-sql-parser,
     containers,
     lens,
-    bytestring,
-    hex-text,
-    binary,
-    aeson,
-    http-api-data,
-    serialise,
-    deepseq,
-    cryptohash,
-    servant,
-    servant-server,
-    warp
 
 executable easy-bi
   import: lang

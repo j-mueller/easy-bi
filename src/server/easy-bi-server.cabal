@@ -1,7 +1,7 @@
 cabal-version:       2.2
-name:                easy-bi-vis
+name:                easy-bi-server
 version:             0.1.0.0
-synopsis:            Visualisation with HVega
+synopsis:            HTTP server for easy-bi
 license-file: LICENSE
 license: Apache-2.0
 author: Jann Müller <j-mueller@users.noreply.github.com>
@@ -29,32 +29,35 @@ library
   hs-source-dirs:
     lib
   exposed-modules:
-    EasyBI.Vis.HVega
-    EasyBI.Vis.Rules
-    EasyBI.Vis.Types
-    EasyBI.Vis.Utils
+    EasyBI.Server.API
+    EasyBI.Server.Impl
+    EasyBI.Server.State
+    EasyBI.Server.View
+    EasyBI.Server
+    EasyBI.Util.MonadLog
+    EasyBI.Util.NiceHash
 
   build-depends:
+    easy-bi-sql
+  build-depends:
     base >=4.16.4 && <4.17,
-    lens,
     mtl,
-    logict,
+    katip,
+    prettyprinter,
+    transformers,
     text,
-    aeson,
+    exceptions,
+    simple-sql-parser,
     containers,
-    hvega
+    bytestring,
+    hex-text,
+    binary,
+    aeson,
+    http-api-data,
+    serialise,
+    deepseq,
+    cryptohash,
+    servant,
+    servant-server,
+    warp
 
-
-test-suite easy-bi-vis-test
-  import: lang
-  type: exitcode-stdio-1.0
-  hs-source-dirs:     test
-  ghc-options: -threaded -rtsopts
-  main-is: Spec.hs
-  build-depends:
-    base >=4.16.4 && <4.17,
-    text,
-    lens,
-    tasty,
-    tasty-hunit,
-    easy-bi-vis
