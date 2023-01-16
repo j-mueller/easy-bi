@@ -39,7 +39,8 @@ library
     EasyBI.Util.NiceHash
 
   build-depends:
-    easy-bi-sql
+    easy-bi-sql,
+    easy-bi-vis
   build-depends:
     base >=4.16.4 && <4.17,
     mtl,
@@ -60,5 +61,6 @@ library
     cryptohash,
     servant,
     servant-server >= 0.19.2,
-    warp
+    warp,
+    lens
 

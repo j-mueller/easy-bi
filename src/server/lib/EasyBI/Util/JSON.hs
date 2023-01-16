@@ -2,6 +2,7 @@
 {-# LANGUAGE LambdaCase         #-}
 module EasyBI.Util.JSON
   ( WrappedObject (..)
+  , fromValue
   ) where
 
 import Codec.Serialise (Serialise (..))
@@ -17,3 +18,7 @@ instance Serialise WrappedObject where
     Left err -> fail (show err)
     Right (Aeson.Object obj) -> pure (WrappedObject obj)
     Right _vl -> fail ("WrappedObject.decode: unexpected JSON value")
+
+fromValue :: Aeson.Value -> Maybe WrappedObject
+fromValue (Aeson.Object obj) = Just (WrappedObject obj)
+fromValue _                  = Nothing
