@@ -22,8 +22,8 @@ module EasyBI.Vis.Rules
 import Control.Applicative (Alternative (..))
 import Control.Monad       (guard)
 import EasyBI.Vis.Types    (Encoding, Mark (..), Measurement (..), Relation,
-                            Rule, colorChannel, dependsOn, field, mark,
-                            markChannel, measurement, positionX, positionY)
+                            Rule, colorChannel, field, mark, markChannel,
+                            measurement, positionX, positionY)
 import EasyBI.Vis.Utils    (choose, setOrFail')
 
 {-| Visualise data in a bar chart
@@ -35,7 +35,6 @@ barChart dims = do
   guard $ measurement x == Nominal || measurement x == Ordinal
   (y, remaining) <- choose rest
   guard $ measurement y == Quantitative
-  guard $ y `dependsOn` x
   let horz = do
         setOrFail' @(Encoding f) (positionX . field) y
         setOrFail' @(Encoding f) (positionY . field) x

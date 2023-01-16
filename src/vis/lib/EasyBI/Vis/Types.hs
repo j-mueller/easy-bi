@@ -194,5 +194,4 @@ TODO: Do we really need this?
 -}
 class Relation a where
   measurement :: a -> Measurement
-  dependsOn :: a -> a -> Bool -- ^ Functional dependencies
   fieldName :: a -> Text
