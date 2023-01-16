@@ -1,8 +1,10 @@
+{-# LANGUAGE NamedFieldPuns #-}
 {-| Server state
 -}
 module EasyBI.Server.State
   ( ServerState (..)
   , emptyState
+  , findQuery
   , stateFromList
   , views
   ) where
@@ -32,7 +34,6 @@ views =
   let mkView (names, typedQueryExpr) =
         View
           { vQuery = hPlain typedQueryExpr
-          , vVisualisation = error "FIXME: visualisations"
           , vTitle = mkTitle names
           }
 
@@ -53,3 +54,7 @@ stateFromList views_ =
       { ssViews = fmap (\(a, b, _) -> (a, b)) viewsH
       , ssQueries = Map.fromList $ fmap (\(_, a, c) -> (hNiceHash $ vQuery a, c)) viewsH
       }
+
+-- | Lookup the query definition
+findQuery :: ServerState -> NiceHash TypedQueryExpr -> Maybe TypedQueryExpr
+findQuery ServerState{ssQueries} h = Map.lookup h ssQueries

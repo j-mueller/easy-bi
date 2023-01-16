@@ -32,7 +32,9 @@ library
     EasyBI.Server.API
     EasyBI.Server.State
     EasyBI.Server.View
+    EasyBI.Server.Visualisation
     EasyBI.Server
+    EasyBI.Util.JSON
     EasyBI.Util.MonadLog
     EasyBI.Util.NiceHash
 
@@ -57,6 +59,6 @@ library
     deepseq,
     cryptohash,
     servant,
-    servant-server,
+    servant-server >= 0.19.2,
     warp
 

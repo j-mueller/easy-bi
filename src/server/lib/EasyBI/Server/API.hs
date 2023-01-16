@@ -2,15 +2,17 @@
 {-# LANGUAGE TypeOperators #-}
 module EasyBI.Server.API
   ( API
-  , WithHash
   ) where
 
-import EasyBI.Server.View   (View)
-import EasyBI.Util.NiceHash (Hashed, NiceHash)
-import Servant.API          (Get, JSON, type (:<|>), type (:>))
-
-type WithHash a = (NiceHash a, a)
+import EasyBI.Server.View          (View)
+import EasyBI.Server.Visualisation (Visualisation)
+import EasyBI.Sql.Catalog          (TypedQueryExpr)
+import EasyBI.Util.JSON            (WrappedObject)
+import EasyBI.Util.NiceHash        (Hashed, NiceHash, WithHash)
+import Servant.API                 (Capture, Get, JSON, type (:<|>), type (:>))
 
 type API =
   "health" :> Get '[JSON] ()
   :<|> "views" :> Get '[JSON] [WithHash (View Hashed)]
+  :<|> "vis"   :> Capture "query" (NiceHash TypedQueryExpr) :> Get '[JSON] [Visualisation]
+  :<|> "eval"  :> Capture "query" (NiceHash TypedQueryExpr) :> Get '[JSON] [WrappedObject]
