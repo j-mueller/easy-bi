@@ -24,9 +24,11 @@ module EasyBI.Util.NiceHash
   , Hashable (..)
   , Hashed
   , Plain
+  , WithHash
   , hHash
   , hNiceHash
   , hPlain
+  , withHash
   ) where
 
 import Codec.Serialise          (Serialise (..), serialise)
@@ -129,3 +131,8 @@ data TestData = TestData{ a :: String, b :: Int}
 deriving via (NiceHashable "text" Text) instance HasNiceHash Text
 
 deriving via (NiceHashable "typed_query" TypedQueryExpr) instance HasNiceHash TypedQueryExpr
+
+type WithHash a = (NiceHash a, a)
+
+withHash :: HasNiceHash a => a -> WithHash a
+withHash a' = (niceHash a', a')

@@ -10,14 +10,12 @@
 {-# LANGUAGE UndecidableInstances #-}
 module EasyBI.Server.View
   ( View (..)
-  , WrappedObject (..)
   , hashView
   , queryExpr
   ) where
 
 import Codec.Serialise      (Serialise (..))
-import Data.Aeson           (FromJSON (..), Object, ToJSON (..))
-import Data.Aeson           qualified as Aeson
+import Data.Aeson           (FromJSON (..), ToJSON (..))
 import EasyBI.Sql.Catalog   (TypedQueryExpr)
 import EasyBI.Util.NiceHash (HasNiceHash (..), Hashable (..), Hashed, Plain,
                              hHash)
@@ -28,9 +26,8 @@ a SQL query, a hole specification and a visualisation.
 -}
 data View h =
   View
-    { vQuery         :: Hashable TypedQueryExpr h
-    , vVisualisation :: WrappedObject
-    , vTitle         :: String
+    { vQuery :: Hashable TypedQueryExpr h
+    , vTitle :: String
     } deriving stock Generic
 
 deriving instance FromJSON (View Hashed)
@@ -47,16 +44,6 @@ hashView view = view{vQuery = hHash (vQuery view)}
 
 queryExpr :: View Plain -> TypedQueryExpr
 queryExpr View{vQuery} = let HPlain a = vQuery in a
-
-newtype WrappedObject = WrappedObject Object
-  deriving newtype (ToJSON, FromJSON)
-
-instance Serialise WrappedObject where
-  encode (WrappedObject obj) = encode (Aeson.encode $ Aeson.Object obj)
-  decode = fmap Aeson.eitherDecode decode >>= \case
-    Left err -> fail (show err)
-    Right (Aeson.Object obj) -> pure (WrappedObject obj)
-    Right _vl -> fail ("WrappedObject.decode: unexpected JSON value")
 
 instance HasNiceHash (View Hashed) where
   type Name (View Hashed) = "view"
