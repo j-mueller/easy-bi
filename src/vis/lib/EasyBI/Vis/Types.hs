@@ -189,8 +189,6 @@ runRule rule s =
   in LogicT.observeAll (execStateT rule' emptyEncoding)
 
 {-| Class of relations between fields (from the Mackinlay paper)
-
-TODO: Do we really need this?
 -}
 class Relation a where
   measurement :: a -> Measurement
