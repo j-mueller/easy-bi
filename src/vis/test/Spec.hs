@@ -48,6 +48,4 @@ instance Relation CarsData where
     Price   -> Quantitative
     Mileage -> Quantitative
 
-  dependsOn _ _ = False
-
   fieldName = Text.pack . show
