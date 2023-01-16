@@ -5,7 +5,7 @@ module EasyBI.Cli.Command
   , commandParser
   ) where
 
-import EasyBI.Server.Impl  (ServerConfig (..))
+import EasyBI.Server       (ServerConfig (..))
 import Options.Applicative (Parser, auto, command, fullDesc, help, info, long,
                             many, option, progDesc, strOption, subparser, value)
 
