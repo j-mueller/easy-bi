@@ -2,6 +2,7 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE NamedFieldPuns    #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ViewPatterns      #-}
 {-| CLI for easy-bi
 -}
 module EasyBI.Cli
@@ -22,6 +23,7 @@ import EasyBI.Cli.Command             (Command (..), SchemaConfig (..),
 import EasyBI.Sql.BuiltinTypes        (defaultTypeEnv)
 import EasyBI.Sql.Catalog             (TypedQueryExpr (..), tables, views)
 import EasyBI.Sql.Class               (render, runInferType)
+import EasyBI.Sql.Effects.Types       (generalise)
 import EasyBI.Sql.Types               (SqlType (STDateTime),
                                        SqlVar (AnIdentifier), TypeEnv (..),
                                        rowFromSchema)
@@ -86,7 +88,7 @@ checkSchema fp timestampColumns = do
         Left err -> do
           logWarnS $ "Type inference failed for '" <> render Dialect.postgres queryExpr <> "'"
           logWarn err
-        Right (_, tp, _) -> do
+        Right (_, generalise -> tp, _) -> do
           logInfo' $ "Inferred type:" <+> pretty tp
           views . at names .= Just (TypedQueryExpr queryExpr tp)
     _ -> logWarnS "Ignoring unexpected SQL statement"

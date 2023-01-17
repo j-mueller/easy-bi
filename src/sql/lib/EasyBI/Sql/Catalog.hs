@@ -31,7 +31,7 @@ import Language.SQL.SimpleSQL.Syntax (Name, QueryExpr, Statement (..))
 data TypedQueryExpr =
   TypedQueryExpr
     { teQuery :: QueryExpr
-    , teType  :: Tp TyVar
+    , teType  :: TyScheme TyVar (Tp TyVar)
     }
     deriving stock (Eq, Show, Generic)
     deriving anyclass (Serialise, ToJSON, FromJSON)
@@ -82,7 +82,7 @@ addStatement typeOverrides = \case
     tables . at (AnIdentifier names) .= Just tp
     pure (Just tp)
   CreateView _ names _ teQuery _ -> do
-    teType <- get >>= flip inferTypeCat teQuery
+    teType <- get >>= fmap generalise . flip inferTypeCat teQuery
     views . at names .= Just TypedQueryExpr{teQuery, teType}
-    pure (Just $ generalise teType)
+    pure (Just teType)
   _ -> pure Nothing
