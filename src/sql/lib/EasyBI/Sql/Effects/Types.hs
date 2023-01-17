@@ -182,7 +182,8 @@ instance (Pretty v, Pretty t) => Pretty (TyConstraint v t) where
     TyInst t s -> pretty t <+> "≤" <+> pretty s
 
 data TyScheme v t = TyScheme [v] t
-  deriving stock (Eq, Show, Foldable, Functor, Traversable)
+  deriving stock (Eq, Show, Foldable, Functor, Traversable, Generic)
+  deriving anyclass (Serialise, ToJSON, FromJSON)
 
 instance (Pretty v, Pretty t) => Pretty (TyScheme v t) where
   pretty (TyScheme [] ts) = pretty ts

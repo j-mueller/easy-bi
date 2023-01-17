@@ -17,7 +17,7 @@ import Data.Map                      qualified as Map
 import Data.Maybe                    (mapMaybe)
 import Data.Text                     qualified as Text
 import EasyBI.Sql.Effects.Types      (RowType (..), SqlType (..), Tp (..),
-                                      TyVar)
+                                      TyScheme (..), TyVar)
 import EasyBI.Util.JSON              (WrappedObject (..), fromValue)
 import EasyBI.Vis.HVega              qualified as HVega
 import EasyBI.Vis.Rules              (makeChart)
@@ -36,12 +36,12 @@ data Visualisation =
     deriving stock Generic
     deriving anyclass (ToJSON, FromJSON)
 
-visualisations :: Tp TyVar -> [Visualisation]
+visualisations :: TyScheme TyVar (Tp TyVar) -> [Visualisation]
 visualisations = maybe [] (mapMaybe enc . runRule makeChart) . selections where
 
-selections :: Tp TyVar -> Maybe (Selections Field)
-selections (TpRow (RowType _ mp)) = Just (fields mp)
-selections _                      = Nothing
+selections :: TyScheme TyVar (Tp TyVar) -> Maybe (Selections Field)
+selections (TyScheme _ (TpRow (RowType _ mp))) = Just (fields mp)
+selections _                                   = Nothing
 
 fields :: Map Name (Tp TyVar) -> Selections Field
 fields mp = emptySelections & wildCards .~ wcs where
