@@ -33,7 +33,7 @@ data Visualisation =
     { visDefinition  :: WrappedObject
     , visDescription :: String
     }
-    deriving stock Generic
+    deriving stock (Generic, Show)
     deriving anyclass (ToJSON, FromJSON)
 
 visualisations :: TyScheme TyVar (Tp TyVar) -> [Visualisation]
