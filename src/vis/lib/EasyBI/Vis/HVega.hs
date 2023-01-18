@@ -18,15 +18,15 @@ module EasyBI.Vis.HVega
 import Control.Lens           (_Just, to, (^.), (^..))
 import Control.Monad.Writer   (MonadWriter, runWriter, runWriterT, tell)
 import Data.Aeson             qualified as JSON
-import Data.Foldable          (forM_, toList)
+import Data.Foldable          (forM_, toList, traverse_)
 import Data.Sequence          (Seq)
 import Data.Sequence          qualified as Seq
 import Data.Text.Lazy         qualified as TL
-import EasyBI.Vis.Types       (ColorChannel, Encoding, Mark (..), MarkChannel,
-                               Measurement (..), PositionChannel, Relation (..),
-                               ScaleTp (..), colorChannel, field, fieldName,
-                               mark, markChannel, measurement, positionX,
-                               positionY, scale, scaleTp, title)
+import EasyBI.Vis.Types       (Encoding, Mark (..), Measurement (..),
+                               PositionChannel, Relation (..), ScaleTp (..),
+                               colorChannel, field, fieldName, markChannel,
+                               measurement, positionX, positionY, scale,
+                               scaleTp, title)
 import Graphics.Vega.VegaLite (BuildEncodingSpecs, Position (..), PropertySpec,
                                VegaLite)
 import Graphics.Vega.VegaLite qualified as VL
@@ -56,8 +56,8 @@ writeSpecs ::
   m ()
 writeSpecs enc = do
   (_, encoding) <- runWriterT $ do
-    writePositionChannel X (enc ^. positionX)
-    writePositionChannel Y (enc ^. positionY)
+    traverse_ (writePositionChannel X) (enc ^. positionX)
+    traverse_ (writePositionChannel Y) (enc ^. positionY)
     writeColorChannel (enc ^. colorChannel)
   tell $ Seq.singleton $ VL.encoding (encoding [])
   writeMarkChannel (enc ^. markChannel)
@@ -70,27 +70,27 @@ writePositionChannel ::
   m ()
 writePositionChannel pos ch =
   tell $ VL.position pos $
-    (ch ^.. field . _Just . to fieldName . to VL.PName)
-      <> (ch ^.. field . _Just . to measurement . to mkMeasurement . to VL.PmType)
-      <> (ch ^.. title . _Just . to VL.PTitle)
+    (ch ^.. field . to fieldName . to VL.PName)
+      <> (ch ^.. field . to measurement . to mkMeasurement . to VL.PmType)
+      <> (ch ^.. title . to VL.PTitle)
       <> (ch ^.. scale . scaleTp . _Just . to (VL.PScale . mkScale))
 
 writeColorChannel ::
   forall f m.
   (Relation f, MonadWriter BuildEncodingSpecs m) =>
-  ColorChannel f ->
+  Maybe f ->
   m ()
 writeColorChannel ch =
   tell $ VL.color $
-    (ch ^.. field . _Just . to fieldName . to VL.MName)
-      <> (ch ^.. field . _Just . to (VL.MmType . mkMeasurement . measurement))
+    (ch ^.. _Just . to fieldName . to VL.MName)
+      <> (ch ^.. _Just . to (VL.MmType . mkMeasurement . measurement))
 
 writeMarkChannel ::
   forall m.
   (MonadWriter (Seq PropertySpec) m) =>
-  MarkChannel ->
+  Maybe Mark ->
   m ()
-writeMarkChannel ch = forM_ (ch ^. mark) $ \mk -> do
+writeMarkChannel ch = forM_ ch $ \mk -> do
   tell $ Seq.singleton $ VL.mark (mkMark mk) []
 
 mkScale :: ScaleTp -> [VL.ScaleProperty]

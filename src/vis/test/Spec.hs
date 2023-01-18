@@ -10,7 +10,7 @@ import Control.Lens     ((&), (.~))
 import Data.Text        qualified as Text
 import EasyBI.Vis.Rules (makeChart)
 import EasyBI.Vis.Types (Mark (..), Measurement (..), OutOf (..), Relation (..),
-                         emptyEncoding, emptySelections, field, mark,
+                         emptyEncoding, emptySelections, fieldPositionChannel,
                          markChannel, positionX, positionY, runRule, wildCards,
                          wildCardsUsed)
 import Test.Tasty       (TestTree, defaultMain, testGroup)
@@ -32,9 +32,9 @@ scatterplot = do
   let sel = emptySelections & wildCards .~ [Price, Mileage]
       encodings = runRule makeChart sel
       expected = emptyEncoding
-                  & positionX . field .~ Just Mileage
-                  & positionY . field .~ Just Price
-                  & markChannel . mark .~ Just Point
+                  & positionX .~ Just (fieldPositionChannel Mileage)
+                  & positionY .~ Just (fieldPositionChannel Price)
+                  & markChannel .~ Just Point
                   & wildCardsUsed .~ Just (2 `OutOf` 2)
   case encodings of
     (x:_) -> assertEqual "Scatterplot encoding" expected x

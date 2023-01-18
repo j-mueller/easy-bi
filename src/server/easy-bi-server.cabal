@@ -62,5 +62,21 @@ library
     servant,
     servant-server >= 0.19.2,
     warp,
-    lens
+    lens,
+    aeson-pretty
 
+
+test-suite easy-bi-server-test
+  import: lang
+  type: exitcode-stdio-1.0
+  hs-source-dirs:     test
+  ghc-options: -threaded -rtsopts
+  main-is: Spec.hs
+  other-modules:
+  build-depends:
+    base >=4.16.4 && <4.17,
+    simple-sql-parser >= 0.6.1,
+    tasty,
+    tasty-hunit,
+    easy-bi-server,
+    easy-bi-sql

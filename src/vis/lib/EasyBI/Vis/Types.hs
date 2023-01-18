@@ -8,27 +8,23 @@
 {-# LANGUAGE GADTs                  #-}
 {-# LANGUAGE LambdaCase             #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE OverloadedStrings      #-}
 {-# LANGUAGE RankNTypes             #-}
 {-# LANGUAGE TemplateHaskell        #-}
 {-# LANGUAGE TypeApplications       #-}
 
 module EasyBI.Vis.Types
-  ( ColorChannel (..)
-  , Encoding (..)
+  ( Encoding (..)
   , Mark (..)
-  , MarkChannel (..)
   , Measurement (..)
   , OutOf (..)
   , PositionChannel (..)
   , Scale (..)
   , ScaleTp (..)
   , colorChannel
-  , emptyColorChannel
   , emptyEncoding
-  , emptyMarkChannel
-  , emptyPosChannel
   , field
-  , mark
+  , fieldPositionChannel
   , markChannel
   , positionX
   , positionY
@@ -49,6 +45,9 @@ module EasyBI.Vis.Types
     -- * Rules
   , Rule
   , runRule
+    -- * Scoring
+  , Score (..)
+  , score
   ) where
 
 import Control.Applicative       (Alternative (..))
@@ -80,34 +79,18 @@ data Scale =
 emptyScale :: Scale
 emptyScale = Scale Nothing
 
-data MarkChannel
-  = MarkChannel
-    { _markChannelMark :: Maybe Mark
-    } deriving (Eq, Ord, Show)
-
-emptyMarkChannel :: MarkChannel
-emptyMarkChannel = MarkChannel Nothing
-
 data Mark = Bar | Point | Line | Rect
   deriving (Eq, Ord, Show)
 
 data PositionChannel f
   = PositionChannel
-      { _positionChannelField :: Maybe f
-      , _positionChannelTitle :: Maybe Text
+      { _positionChannelField :: f
+      , _positionChannelTitle :: Text
       , _positionChannelScale :: Scale
       } deriving (Eq, Show, Functor, Foldable, Traversable)
 
-emptyPosChannel :: PositionChannel f
-emptyPosChannel = PositionChannel Nothing Nothing emptyScale
-
-data ColorChannel f
-  = ColorChannel
-    { _colorChannelField :: Maybe f
-    } deriving (Eq, Show, Functor, Foldable, Traversable)
-
-emptyColorChannel :: ColorChannel f
-emptyColorChannel = ColorChannel Nothing
+fieldPositionChannel :: f -> PositionChannel f
+fieldPositionChannel f = PositionChannel f "" emptyScale
 
 {-| How many out of a maximum number
 -}
@@ -117,20 +100,27 @@ data OutOf = OutOf Int Int
 -- | Specifies how a relation is displayed in graph
 data Encoding f
   = Encoding
-      { _positionX     :: PositionChannel f,
-        _positionY     :: PositionChannel f,
-        _colorChannel  :: ColorChannel f,
-        _markChannel   :: MarkChannel,
+      { _positionX     :: Maybe (PositionChannel f),
+        _positionY     :: Maybe (PositionChannel f),
+        _colorChannel  :: Maybe f,
+        _markChannel   :: Maybe Mark,
         _wildCardsUsed :: Maybe OutOf
       } deriving (Eq, Show, Functor, Foldable, Traversable)
+
+newtype Score = Score{unScore :: Double }
+
+{-| How "good" (informative) is the encoding?
+-}
+score :: Encoding f -> Maybe Score
+score _ = Nothing
 
 emptyEncoding :: Encoding f
 emptyEncoding =
   Encoding
-    { _positionX = emptyPosChannel
-    , _positionY = emptyPosChannel
-    , _colorChannel = emptyColorChannel
-    , _markChannel = emptyMarkChannel
+    { _positionX = Nothing
+    , _positionY = Nothing
+    , _colorChannel = Nothing
+    , _markChannel = Nothing
     , _wildCardsUsed = Nothing
     }
 
@@ -149,8 +139,6 @@ emptySelections = Selections [] Nothing Nothing Nothing Nothing
 
 makeLenses ''Encoding
 makeFields ''PositionChannel
-makeFields ''ColorChannel
-makeFields ''MarkChannel
 makeLenses ''Scale
 makeLenses ''Selections
 
@@ -171,14 +159,14 @@ selectedDimensions s = do
   setOrFail' wildCardsUsed (length wcs `OutOf` length (s ^. wildCards))
   x' <- case s ^. xAxis of
           Nothing -> pure []
-          Just a  -> setOrFail' (positionX . field) a *> pure [a]
+          Just a  -> setOrFail' positionX (fieldPositionChannel a) *> pure [a]
   y' <- case s ^. yAxis of
           Nothing -> pure []
-          Just a  -> setOrFail' (positionY . field) a *> pure [a]
+          Just a  -> setOrFail' positionY (fieldPositionChannel a) *> pure [a]
   col <- case s ^. color of
           Nothing -> pure []
-          Just c  -> setOrFail' (colorChannel . field) c *> pure [c]
-  traverse_ (setOrFail' (markChannel . mark)) (s ^. selectedMark)
+          Just c  -> setOrFail' colorChannel c *> pure [c]
+  traverse_ (setOrFail' markChannel) (s ^. selectedMark)
   pure $ nub $ wcs ++ x' ++ y' ++ col
 
 {-
