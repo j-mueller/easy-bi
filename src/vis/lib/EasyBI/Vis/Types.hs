@@ -2,12 +2,15 @@
 {-# LANGUAGE DeriveFoldable         #-}
 {-# LANGUAGE DeriveFunctor          #-}
 {-# LANGUAGE DeriveTraversable      #-}
+{-# LANGUAGE DerivingStrategies     #-}
+{-# LANGUAGE DerivingVia            #-}
 {-# LANGUAGE FlexibleContexts       #-}
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GADTs                  #-}
 {-# LANGUAGE LambdaCase             #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE NamedFieldPuns         #-}
 {-# LANGUAGE OverloadedStrings      #-}
 {-# LANGUAGE RankNTypes             #-}
 {-# LANGUAGE TemplateHaskell        #-}
@@ -50,14 +53,18 @@ module EasyBI.Vis.Types
   , score
   ) where
 
+import Codec.Serialise           (Serialise)
 import Control.Applicative       (Alternative (..))
 import Control.Lens              (makeFields, makeLenses, (^.))
 import Control.Monad             (guard)
 import Control.Monad.Logic       qualified as LogicT
 import Control.Monad.Logic.Class (MonadLogic)
 import Control.Monad.State       (MonadState, execStateT)
+import Data.Aeson                (FromJSON, ToJSON)
 import Data.Foldable             (traverse_)
 import Data.List                 (nub)
+import Data.Maybe                (isJust)
+import Data.Semigroup            (Sum (..))
 import Data.Text                 (Text)
 import EasyBI.Vis.Utils          (chooseSubList, setOrFail')
 
@@ -107,12 +114,28 @@ data Encoding f
         _wildCardsUsed :: Maybe OutOf
       } deriving (Eq, Show, Functor, Foldable, Traversable)
 
+{-| Ranking of an encoding
+-}
 newtype Score = Score{unScore :: Double }
+  deriving newtype (Num, Eq, Ord, ToJSON, FromJSON, Serialise)
+  deriving stock (Show)
+  deriving (Semigroup, Monoid) via (Sum Double)
 
 {-| How "good" (informative) is the encoding?
 -}
 score :: Encoding f -> Maybe Score
-score _ = Nothing
+score Encoding{_positionX, _positionY, _colorChannel, _markChannel, _wildCardsUsed} = do
+  let definedScore :: Maybe a -> Score
+      definedScore = maybe 0 (const 1)
+
+      outOfScore :: OutOf -> Score
+      outOfScore (OutOf _ 0) = 0
+      outOfScore (OutOf a b) = 2 * Score (fromIntegral a / fromIntegral b)
+
+      defScores = definedScore _positionX <> definedScore _positionY <> definedScore _colorChannel <> definedScore _markChannel
+
+  guard (isJust _positionX || isJust _positionY)
+  pure (defScores <> maybe 0 outOfScore _wildCardsUsed)
 
 emptyEncoding :: Encoding f
 emptyEncoding =
