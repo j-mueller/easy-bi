@@ -42,8 +42,8 @@ library
     text,
     aeson,
     containers,
-    hvega
-
+    hvega,
+    serialise
 
 test-suite easy-bi-vis-test
   import: lang

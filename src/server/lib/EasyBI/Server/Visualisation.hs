@@ -12,9 +12,11 @@ module EasyBI.Server.Visualisation
 import Control.Lens                  ((&), (.~))
 import Data.Aeson                    (FromJSON (..), ToJSON (..))
 import Data.Bifunctor                (Bifunctor (..))
+import Data.List                     (sortOn)
 import Data.Map                      (Map)
 import Data.Map                      qualified as Map
 import Data.Maybe                    (mapMaybe)
+import Data.Ord                      (Down (..))
 import Data.Text                     qualified as Text
 import EasyBI.Sql.Effects.Types      (RowType (..), SqlType (..), Tp (..),
                                       TyScheme (..), TyVar)
@@ -22,22 +24,34 @@ import EasyBI.Util.JSON              (WrappedObject (..), fromValue)
 import EasyBI.Vis.HVega              qualified as HVega
 import EasyBI.Vis.Rules              (makeChart)
 import EasyBI.Vis.Types              (Encoding, Measurement (..), Relation (..),
-                                      Selections, emptySelections, runRule,
-                                      wildCards)
+                                      Score (..), Selections, emptySelections,
+                                      runRule, score, wildCards)
 import GHC.Generics                  (Generic)
 import Language.SQL.SimpleSQL.Syntax (Name (..))
 
-
+{-| Visualisation to be shown on the client
+-}
 data Visualisation =
   Visualisation
     { visDefinition  :: WrappedObject
+    -- ^ Specification of the graph in HVega
     , visDescription :: String
+    -- ^ Description
+    , visScore       :: Score
+    -- ^ Score
     }
     deriving stock (Generic, Show)
     deriving anyclass (ToJSON, FromJSON)
 
 visualisations :: TyScheme TyVar (Tp TyVar) -> [Visualisation]
-visualisations = maybe [] (mapMaybe enc . runRule makeChart) . selections where
+visualisations =
+  let addScore x = traverse score (x, x) in
+  maybe []
+    (mapMaybe (uncurry enc)
+      . sortOn (Down . snd)
+      . mapMaybe addScore
+      . runRule makeChart)
+    . selections
 
 selections :: TyScheme TyVar (Tp TyVar) -> Maybe (Selections Field)
 selections (TyScheme _ (TpRow (RowType _ mp))) = Just (fields mp)
@@ -56,9 +70,9 @@ fields mp = emptySelections & wildCards .~ wcs where
   getMeasure _ = Nothing
   wcs = mapMaybe (fmap (uncurry Field . first getName) . traverse getMeasure) (Map.toList mp)
 
-enc :: Encoding Field -> Maybe Visualisation
-enc e =
-  Visualisation <$> fromValue (HVega.toJSON e) <*> pure "FIXME: enc.visDescription"
+enc :: Encoding Field -> Score -> Maybe Visualisation
+enc e s =
+  Visualisation <$> fromValue (HVega.toJSON e) <*> pure "FIXME: enc.visDescription" <*> pure s
 
 {-| A field with a measurement
 -}
