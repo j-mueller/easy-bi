@@ -14,9 +14,7 @@ module EasyBI.Test.Utils
   ) where
 
 import Control.Exception              (catch, onException, throwIO)
-import Control.Monad.Except           (runExceptT)
 import Control.Monad.IO.Class         (MonadIO (..))
-import Control.Monad.State.Strict     (runStateT)
 import Data.ByteString                (ByteString)
 import Data.ByteString                qualified as BS
 import Data.Text                      (Text)
@@ -142,7 +140,6 @@ sampleCatalog :: IO Catalog
 sampleCatalog = do
   file <- Text.unpack . Text.decodeUtf8 <$> readDataFile "schema.sql"
   statements <- either (failure . show) pure (Parse.parseStatements Dialect.postgres "schema.sql" Nothing file)
-  result <- runExceptT $ flip runStateT mempty $ traverse (Catalog.addStatement mempty) statements
-  case result of
+  case Catalog.fromStatements statements of
     Left err       -> failure (show err)
     Right (_, cat) -> pure cat
