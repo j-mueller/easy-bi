@@ -8,6 +8,10 @@ author: Jann Müller <j-mueller@users.noreply.github.com>
 maintainer: Jann Müller <j-mueller@users.noreply.github.com>
 copyright: (c) 2022 Jann Müller
 build-type:          Simple
+data-files:
+  test/data/sales_data_sample.csv
+  test/data/sales.db
+  test/data/schema.sql
 
 common lang
     default-language: Haskell2010
@@ -30,6 +34,7 @@ library
     lib
   exposed-modules:
     EasyBI.Server.API
+    EasyBI.Server.Eval
     EasyBI.Server.State
     EasyBI.Server.View
     EasyBI.Server.Visualisation
@@ -63,8 +68,9 @@ library
     servant-server >= 0.19.2,
     warp,
     lens,
-    aeson-pretty
-
+    aeson-pretty,
+    resource-pool >= 0.3.1.0,
+    sqlite-simple >= 0.4.18.2
 
 test-suite easy-bi-server-test
   import: lang
@@ -73,10 +79,23 @@ test-suite easy-bi-server-test
   ghc-options: -threaded -rtsopts
   main-is: Spec.hs
   other-modules:
+    EasyBI.Test.Utils
+    Paths_easy_bi_server
   build-depends:
     base >=4.16.4 && <4.17,
     simple-sql-parser >= 0.6.1,
     tasty,
     tasty-hunit,
     easy-bi-server,
-    easy-bi-sql
+    easy-bi-sql,
+    text,
+    bytestring,
+    directory,
+    filepath,
+    process,
+    HUnit,
+    temporary,
+    mtl
+
+  autogen-modules:
+    Paths_easy_bi_server

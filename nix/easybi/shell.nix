@@ -18,6 +18,7 @@ let
     devInputs = if withoutDevTools then [ ] else [
         # The interactive Glasgow Haskell Compiler as a Daemon
         pkgs.haskellPackages.ghcid
+        pkgs.sqlite
     ];
 
     # Haskell.nix managed tools (via hackage)

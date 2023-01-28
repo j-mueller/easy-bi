@@ -1,17 +1,20 @@
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE ViewPatterns       #-}
 module EasyBI.Util.JSON
   ( WrappedObject (..)
   , fromValue
   ) where
 
-import Codec.Serialise          (Serialise (..))
-import Data.Aeson               (FromJSON (..), Object, ToJSON (..))
-import Data.Aeson               qualified as Aeson
-import Data.Aeson.Encode.Pretty qualified as Pretty
-import Data.ByteString.Lazy     qualified as BSL
-import Data.Text                qualified as Text
-import Data.Text.Encoding       qualified as Text
+import Codec.Serialise                  (Serialise (..))
+import Data.Aeson                       (FromJSON (..), Object, ToJSON (..))
+import Data.Aeson                       qualified as Aeson
+import Data.Aeson.Encode.Pretty         qualified as Pretty
+import Data.ByteString.Lazy             qualified as BSL
+import Data.Text                        qualified as Text
+import Data.Text.Encoding               qualified as Text
+import Database.SQLite.Simple           (SQLData (..))
+import Database.SQLite.Simple.FromField (FromField (..), fieldData)
 
 newtype WrappedObject = WrappedObject Object
   deriving newtype (ToJSON, FromJSON)
@@ -30,3 +33,10 @@ instance Show WrappedObject where
 fromValue :: Aeson.Value -> Maybe WrappedObject
 fromValue (Aeson.Object obj) = Just (WrappedObject obj)
 fromValue _                  = Nothing
+
+instance FromField WrappedObject where
+  fromField (fieldData -> SQLText t) = case Aeson.eitherDecode (BSL.fromStrict $ Text.encodeUtf8 t) of
+    Left err -> fail (show err)
+    Right k  -> pure k
+  fromField f                        =
+    fail ("FromField WrappedObject: fromField: expected SQLText but got: " <> show (fieldData f))
