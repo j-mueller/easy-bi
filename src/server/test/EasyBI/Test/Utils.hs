@@ -140,6 +140,6 @@ sampleCatalog :: IO Catalog
 sampleCatalog = do
   file <- Text.unpack . Text.decodeUtf8 <$> readDataFile "schema.sql"
   statements <- either (failure . show) pure (Parse.parseStatements Dialect.postgres "schema.sql" Nothing file)
-  case Catalog.fromStatements statements of
+  case Catalog.fromStatements mempty statements of
     Left err       -> failure (show err)
     Right (_, cat) -> pure cat

@@ -120,7 +120,7 @@ catalogSuccess expectedType s step = do
         step (show err)
         fail "catalogSuccess: Failed to parse input string"
       Right x -> pure x
-  let result = Catalog.fromStatements statements
+  let result = Catalog.fromStatements mempty statements
   case result of
     Left err -> do
       step (show err)
