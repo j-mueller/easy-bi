@@ -10,6 +10,7 @@ module EasyBI.Sql.Catalog
   ( Catalog (..)
   , TypedQueryExpr (..)
   , addStatement
+  , fromStatements
   , inferTypeCat
   , tables
   , views
@@ -17,10 +18,12 @@ module EasyBI.Sql.Catalog
 
 import Codec.Serialise               (Serialise)
 import Control.Lens                  (at, makeLenses, (.=))
-import Control.Monad.Except          (MonadError (throwError))
-import Control.Monad.State.Strict    (MonadState, get)
+import Control.Monad.Except          (MonadError (throwError), runExcept)
+import Control.Monad.State.Strict    (MonadState, get, runStateT)
 import Data.Aeson                    (FromJSON, ToJSON)
+import Data.Bifunctor                (Bifunctor (..))
 import Data.Map.Strict               (Map)
+import Data.Maybe                    (catMaybes)
 import EasyBI.Sql.Class              (SqlFragment, runInferType)
 import EasyBI.Sql.Effects.Types      (SqlType, SqlVar (..), Tp, TyScheme, TyVar,
                                       TypeEnv (..), generalise)
@@ -86,3 +89,9 @@ addStatement typeOverrides = \case
     views . at names .= Just TypedQueryExpr{teQuery, teType}
     pure (Just teType)
   _ -> pure Nothing
+
+{-| Create a catalog from a list of statements, returning the catalog and a list
+of the inferred types of all views and tables
+-}
+fromStatements :: [Statement] -> Either InferError ([TyScheme TyVar (Tp TyVar)], Catalog)
+fromStatements = fmap (first catMaybes) . runExcept . flip runStateT mempty . traverse (addStatement mempty)

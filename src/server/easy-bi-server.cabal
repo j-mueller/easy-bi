@@ -94,8 +94,7 @@ test-suite easy-bi-server-test
     filepath,
     process,
     HUnit,
-    temporary,
-    mtl
+    temporary
 
   autogen-modules:
     Paths_easy_bi_server

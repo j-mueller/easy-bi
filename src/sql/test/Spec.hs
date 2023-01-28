@@ -9,11 +9,9 @@ module Main
   ) where
 
 import Control.Monad                  (unless)
-import Control.Monad.Except           (runExceptT)
-import Control.Monad.State.Strict     (runStateT)
 import Data.Foldable                  (traverse_)
 import Data.Map.Strict                qualified as Map
-import Data.Maybe                     (catMaybes, listToMaybe)
+import Data.Maybe                     (listToMaybe)
 import Data.Proxy                     (Proxy (..))
 import EasyBI.Sql.Catalog             qualified as Catalog
 import EasyBI.Sql.Class               (SqlFragment (..), ansi2011, runInferType,
@@ -122,12 +120,12 @@ catalogSuccess expectedType s step = do
         step (show err)
         fail "catalogSuccess: Failed to parse input string"
       Right x -> pure x
-  result <- runExceptT $ flip runStateT mempty $ traverse (Catalog.addStatement mempty) statements
+  let result = Catalog.fromStatements statements
   case result of
     Left err -> do
       step (show err)
       fail "catalogSuccess: Failed to process statement"
-    Right (listToMaybe . catMaybes . reverse -> Just (TyScheme _ actualType), _catalog) -> do
+    Right (listToMaybe . reverse -> Just (TyScheme _ actualType), _catalog) -> do
       let good = actualType == expectedType
       unless good $ do
         step "catalogSuccess failed"
