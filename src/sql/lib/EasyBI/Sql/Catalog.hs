@@ -93,5 +93,10 @@ addStatement typeOverrides = \case
 {-| Create a catalog from a list of statements, returning the catalog and a list
 of the inferred types of all views and tables
 -}
-fromStatements :: [Statement] -> Either InferError ([TyScheme TyVar (Tp TyVar)], Catalog)
-fromStatements = fmap (first catMaybes) . runExcept . flip runStateT mempty . traverse (addStatement mempty)
+fromStatements ::
+  Map String SqlType ->
+    -- ^ Manual type overrides for columns
+  [Statement] ->
+    -- ^ List of statements
+  Either InferError ([TyScheme TyVar (Tp TyVar)], Catalog)
+fromStatements overrides = fmap (first catMaybes) . runExcept . flip runStateT mempty . traverse (addStatement overrides)
