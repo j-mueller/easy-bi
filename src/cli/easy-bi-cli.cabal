@@ -41,7 +41,6 @@ library
     base >=4.16.4 && <4.17,
     mtl,
     katip,
-    prettyprinter,
     text,
     optparse-applicative,
     simple-sql-parser,
@@ -51,7 +50,7 @@ library
 executable easy-bi
   import: lang
   hs-source-dirs:     app
-  ghc-options: -threaded -rtsopts
+  ghc-options: -O2 -threaded -rtsopts -with-rtsopts=-N
   main-is: App.hs
   build-depends:
     base >=4.16.4 && <4.17,

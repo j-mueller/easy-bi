@@ -6,6 +6,7 @@ module EasyBI.Cli.Command
   ) where
 
 import EasyBI.Server       (ServerConfig (..))
+import EasyBI.Server.Eval  (DbBackend (..))
 import Options.Applicative (Parser, auto, command, fullDesc, help, info, long,
                             many, option, progDesc, strOption, subparser, value)
 
@@ -27,8 +28,8 @@ parseSchemaConfig =
 
 data Command =
   CheckTypes SchemaConfig
-  | StartServer SchemaConfig ServerConfig
-  deriving (Eq, Ord, Show)
+  | StartServer SchemaConfig ServerConfig DbBackend
+  deriving (Eq, Show)
 
 commandParser :: Parser Command
 commandParser =
@@ -42,9 +43,13 @@ checkTypes :: Parser Command
 checkTypes = CheckTypes <$> parseSchemaConfig
 
 startServer :: Parser Command
-startServer = StartServer <$> parseSchemaConfig <*> parseServerConfig
+startServer = StartServer <$> parseSchemaConfig <*> parseServerConfig <*> parseDbBackend
 
 parseServerConfig :: Parser ServerConfig
 parseServerConfig =
   ServerConfig
     <$> option auto (long "port" <> value 8080 <> help "Server port")
+
+parseDbBackend :: Parser DbBackend
+parseDbBackend =
+  SqliteBackend <$> strOption (long "sqlite-db" <> help "SQLite database file")
