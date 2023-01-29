@@ -11,24 +11,30 @@ module EasyBI.Cli
 
 import Control.Exception              (bracket)
 import Control.Lens                   (at, use, (.=))
+import Control.Monad                  (void)
 import Control.Monad.Except           (MonadError (..), runExceptT)
 import Control.Monad.IO.Class         (MonadIO (..))
-import Control.Monad.State.Strict     (evalStateT)
+import Control.Monad.State.Strict     (execStateT)
 import Data.Foldable                  (traverse_)
 import Data.Map.Strict                qualified as Map
 import Data.Text                      qualified as Text
 import Data.Text.IO                   qualified as Text.IO
 import EasyBI.Cli.Command             (Command (..), SchemaConfig (..),
                                        TimestampColumn (..), commandParser)
+import EasyBI.Server                  (runServer)
+import EasyBI.Server.Eval             qualified as Eval
+import EasyBI.Server.State            (stateFromList)
+import EasyBI.Server.State            qualified as State
 import EasyBI.Sql.BuiltinTypes        (defaultTypeEnv)
-import EasyBI.Sql.Catalog             (TypedQueryExpr (..), tables, views)
+import EasyBI.Sql.Catalog             (Catalog, TypedQueryExpr (..), tables,
+                                       views)
 import EasyBI.Sql.Class               (render, runInferType)
 import EasyBI.Sql.Effects.Types       (generalise)
 import EasyBI.Sql.Types               (SqlType (STDateTime),
                                        SqlVar (AnIdentifier), TypeEnv (..),
                                        rowFromSchema)
-import EasyBI.Util.MonadLog           (MonadLog, logInfo', logInfoS, logWarn,
-                                       logWarnS, runMonadLogKatipT)
+import EasyBI.Util.MonadLog           (MonadLog, logInfoS, logWarn, logWarnS,
+                                       runMonadLogKatipT)
 import Katip                          qualified as K
 import Language.SQL.SimpleSQL.Dialect qualified as Dialect
 import Language.SQL.SimpleSQL.Parse   (ParseError (..))
@@ -37,7 +43,6 @@ import Language.SQL.SimpleSQL.Syntax  (Statement (..))
 import Options.Applicative            (customExecParser, disambiguate, helper,
                                        idm, info, prefs, showHelpOnEmpty,
                                        showHelpOnError)
-import Prettyprinter                  (pretty, (<+>))
 import System.Exit                    (exitFailure)
 import System.IO                      (stdout)
 
@@ -64,19 +69,20 @@ data AppError =
 
 runCommand :: (MonadIO m, MonadLog m, MonadError AppError m) => Command -> m ()
 runCommand = \case
-  CheckTypes SchemaConfig{scSqlFile, scTimestampColumns} -> checkSchema scSqlFile scTimestampColumns
-  StartServer _schemaConfig _serverConfig -> do
-    logWarnS "start-server: not implemented"
-    pure ()
+  CheckTypes schemaConfig -> void (loadSchema schemaConfig)
+  StartServer schemaConfig serverConfig dbBackend -> do
+    (stateFromList . State.views -> serverState) <- loadSchema schemaConfig
+    liftIO $ Eval.withDbConnectionPool dbBackend $ \pool ->
+      runServer pool serverState serverConfig
 
-checkSchema :: (MonadLog m, MonadIO m, MonadError AppError m) => FilePath -> [TimestampColumn] -> m ()
-checkSchema fp timestampColumns = do
+loadSchema :: (MonadLog m, MonadIO m, MonadError AppError m) => SchemaConfig -> m Catalog
+loadSchema SchemaConfig{scSqlFile, scTimestampColumns} = do
   logInfoS "Checking schema"
   let mkCol (TimestampColumn c) = (c, STDateTime)
-      typeOverrides = Map.fromList $ fmap mkCol timestampColumns
-  txt <- Text.unpack <$> liftIO (Text.IO.readFile fp)
-  statements <- either (throwError . SqlParseError) pure (Parse.parseStatements Dialect.postgres fp Nothing txt)
-  flip evalStateT mempty $ flip traverse_ statements $ \case
+      typeOverrides = Map.fromList $ fmap mkCol scTimestampColumns
+  txt <- Text.unpack <$> liftIO (Text.IO.readFile scSqlFile)
+  statements <- either (throwError . SqlParseError) pure (Parse.parseStatements Dialect.postgres scSqlFile Nothing txt)
+  flip execStateT mempty $ flip traverse_ statements $ \case
     CreateTable names elements -> do
       logInfoS ("Create table " <> show names)
       let tp = rowFromSchema elements typeOverrides
@@ -89,6 +95,5 @@ checkSchema fp timestampColumns = do
           logWarnS $ "Type inference failed for '" <> render Dialect.postgres queryExpr <> "'"
           logWarn err
         Right (_, generalise -> tp, _) -> do
-          logInfo' $ "Inferred type:" <+> pretty tp
           views . at names .= Just (TypedQueryExpr queryExpr tp)
     _ -> logWarnS "Ignoring unexpected SQL statement"

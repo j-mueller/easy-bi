@@ -31,6 +31,7 @@ import Language.SQL.SimpleSQL.Syntax  (Alias (..), Name (..), QueryExpr (..),
 
 data DbBackend
   = SqliteBackend{ sqliteFile :: FilePath }
+  deriving (Eq, Show)
   -- TODO: Postgres
 
 data DbConnectionPool
