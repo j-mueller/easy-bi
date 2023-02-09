@@ -19,6 +19,8 @@ let
         # The interactive Glasgow Haskell Compiler as a Daemon
         pkgs.haskellPackages.ghcid
         pkgs.sqlite
+        pkgs.nodejs
+        pkgs.nodePackages.npm
     ];
 
     # Haskell.nix managed tools (via hackage)
