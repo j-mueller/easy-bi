@@ -9,10 +9,7 @@
     flake-utils.lib.eachSystem [ "x86_64-linux" ] (system:
       let
         pkgs = import nixpkgs { inherit system; };
-        ui   = import ./nix/easybi/ui.nix
-                { src    = ./src/ui;
-                  inherit system pkgs;
-                };
+        ui   = import ./nix/easybi/ui.nix { inherit pkgs; dist = ./src/ui/dist; };
         easyBiProject = import ./nix/easybi/project.nix { inherit system haskellNix nixpkgs; };
         easyBiPackages = import ./nix/easybi/packages.nix {
           inherit system easyBiProject ui;

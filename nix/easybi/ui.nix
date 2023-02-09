@@ -1,13 +1,10 @@
-{ src
+{ pkgs
+, dist
 , system
-, pkgs
-}:
-derivation {
-  inherit src system;
-  npm    = pkgs.nodePackages.npm;
-  nodejs = pkgs.nodejs;          
-  bash    = pkgs.bash;      
-  name    = "easy-bi-ui";
-  builder = "${pkgs.bash}/bin/bash";
-  args    = [./build-ui.sh];
+}: derivation {
+    src = dist;
+    inherit system;
+    name = "easy-bi-ui";
+    builder = "${pkgs.bash}/bin/bash";
+    args = [./copy-ui.sh];
 }
