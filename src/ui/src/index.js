@@ -6,7 +6,7 @@ import './index.css';
 const App = () => {
   return (
     <div>
-        <div>Welcome to my-webpack-react-starter</div>
+        <div className="text-gray-700">Welcome to my-webpack-react-starter</div>
     </div>
   );
 };
