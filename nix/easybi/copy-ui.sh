@@ -1,3 +1,3 @@
-export PATH="${pkgs.coreutils}/bin"
+export PATH="${coreutils}/bin"
 mkdir ${out}
-cp -r ${ui}/* ${out}
+cp ${dist}/bundle.js ${dist}/index.html ${out}
