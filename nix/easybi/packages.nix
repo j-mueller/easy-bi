@@ -15,7 +15,7 @@ in
         easy-bi-cli = cli;
         easy-bi-cli-static = musl64Pkgs.easy-bi-cli.components.exes.easy-bi;
 
-        easy-bi-ui = cli;
+        easy-bi-ui = ui;
 
         # Built by `nix build .`
         default = cli;

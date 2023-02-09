@@ -10,10 +10,8 @@
       let
         pkgs = import nixpkgs { inherit system; };
         ui   = import ./nix/easybi/ui.nix
-                { npm    = pkgs.nodePackages.npm;
-                  nodejs = pkgs.nodejs;
-                  src    = ./src/ui;
-                  inherit system;
+                { src    = ./src/ui;
+                  inherit system pkgs;
                 };
         easyBiProject = import ./nix/easybi/project.nix { inherit system haskellNix nixpkgs; };
         easyBiPackages = import ./nix/easybi/packages.nix {
