@@ -1,9 +1,12 @@
 const path = require('path');
 const autoprefixer = require('autoprefixer');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 
-module.exports = {
-  entry: './src/index.js',
+const isProd = process.env.NODE_ENV === "production";
+
+config = {
+  entry: './src/index.tsx',
   output: {
     path: path.resolve(__dirname, 'dist'),
     filename: 'bundle.js',
@@ -11,43 +14,25 @@ module.exports = {
     publicPath: ''
   },
   resolve: {
-    extensions: ['.js', '.jsx']
+    extensions: [".js", ".jsx", ".ts", ".tsx"],
   },
   module: {
     rules: [
       {
-        test: /\.js$/,
-        loader: 'babel-loader',
-        exclude: /node_modules/
+        test: /\.tsx?$/,
+        use: "babel-loader",
+        exclude: /node_modules/,
       },
       {
         test: /\.css$/,
-        exclude: /node_modules/,
         use: [
-          { loader: 'style-loader' },
-          {
-            loader: 'css-loader',
-            options: {
-              modules: {
-                localIdentName: "[name]__[local]___[hash:base64:5]",
-              },
-              sourceMap: true
-            }
-          },
-          {
-            loader: 'postcss-loader',
-            options: {
-              postcssOptions: {
-                plugins: [
-                  ['autoprefixer', {},],
-                ],
-              },
-            }
-          }
-        ]
+          MiniCssExtractPlugin.loader,
+          { loader: "css-loader", options: { url: false } },
+          "postcss-loader",
+        ],
       },
       {
-        test: /\.(png|jpe?g|gif)$/,
+        test: /\.(png|jpe?g|gif|svg)$/,
         loader: 'url-loader',
         options: {
           limit: 10000,
@@ -57,6 +42,9 @@ module.exports = {
     ]
   },
   plugins: [
+    new MiniCssExtractPlugin({
+      filename: 'css/[name].css',
+    }),
     new HtmlWebpackPlugin({
       template: __dirname + '/src/index.html',
       filename: 'index.html',
@@ -64,3 +52,18 @@ module.exports = {
     })
   ]
 };
+
+if (!isProd) {
+  config.devServer = {
+    historyApiFallback: true,
+    port: 9000,
+    open: true,
+    hot: true,
+    compress: true,
+    proxy: {
+      '/api': 'http://localhost:8080'
+    }
+  }
+}
+
+module.exports = config;
