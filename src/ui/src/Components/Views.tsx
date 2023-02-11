@@ -2,6 +2,7 @@ import React, { ReactNode, useEffect, useState } from "react";
 import Api, { Hashed, View } from "../Api";
 import { Link, Outlet, Route, Routes } from "react-router-dom";
 import Page from "./Page";
+import ViewComponent from "./View";
 
 const ViewList: React.FC = () => {
     const [availableViews, setAvailableViews] = useState<Hashed<View>[]>([]);
@@ -27,7 +28,7 @@ const ViewList: React.FC = () => {
 const Views: React.FC<{}> = () => {
     return <Routes>
         <Route path="/" element={<Outlet/>}>
-            <Route path=":viewid/*" element={<div>view</div>}/>
+            <Route path=":viewid/*" element={<ViewComponent/>}/>
             <Route index element={<ViewList/>} />
         </Route>
     </Routes>
