@@ -42,4 +42,11 @@ const vis: (q: QueryHash) => Observable<Visualisation[]> = (q: QueryHash) =>
       shareReplay(1)
     )
 
-export default { views, view, vis }
+const evl: (q: QueryHash) => Observable<any[]> = (q: QueryHash) =>
+  fromFetch("/api/eval/" + q)
+    .pipe(
+      mergeMap(val => val.json().then(vl => vl as any[])),
+      shareReplay(1)
+    )
+
+export default { views, view, vis, evl }

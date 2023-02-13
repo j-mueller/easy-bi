@@ -3,10 +3,12 @@
 {-# LANGUAGE ViewPatterns       #-}
 module EasyBI.Util.JSON
   ( WrappedObject (..)
+  , _WrappedObject
   , fromValue
   ) where
 
 import Codec.Serialise                  (Serialise (..))
+import Control.Lens                     (Iso', iso)
 import Data.Aeson                       (FromJSON (..), Object, ToJSON (..))
 import Data.Aeson                       qualified as Aeson
 import Data.Aeson.Encode.Pretty         qualified as Pretty
@@ -40,3 +42,6 @@ instance FromField WrappedObject where
     Right k  -> pure k
   fromField f                        =
     fail ("FromField WrappedObject: fromField: expected SQLText but got: " <> show (fieldData f))
+
+_WrappedObject :: Iso' WrappedObject Object
+_WrappedObject = iso (\(WrappedObject o) -> o) WrappedObject

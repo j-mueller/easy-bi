@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveAnyClass     #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE OverloadedStrings  #-}
 {-| Visualisations
 -}
 module EasyBI.Server.Visualisation
@@ -9,8 +10,9 @@ module EasyBI.Server.Visualisation
   , visualisations
   ) where
 
-import Control.Lens                  ((&), (.~))
-import Data.Aeson                    (FromJSON (..), ToJSON (..))
+import Control.Lens                  (over, (&), (.~))
+import Data.Aeson                    (FromJSON (..), ToJSON (..), object, (.=))
+import Data.Aeson.KeyMap             qualified as KM
 import Data.Bifunctor                (Bifunctor (..))
 import Data.List                     (sortOn)
 import Data.Map                      (Map)
@@ -20,7 +22,8 @@ import Data.Ord                      (Down (..))
 import Data.Text                     qualified as Text
 import EasyBI.Sql.Effects.Types      (RowType (..), SqlType (..), Tp (..),
                                       TyScheme (..), TyVar)
-import EasyBI.Util.JSON              (WrappedObject (..), fromValue)
+import EasyBI.Util.JSON              (WrappedObject (..), _WrappedObject,
+                                      fromValue)
 import EasyBI.Vis.HVega              qualified as HVega
 import EasyBI.Vis.Rules              (makeChart)
 import EasyBI.Vis.Types              (Encoding, Measurement (..), Relation (..),
@@ -71,8 +74,11 @@ fields mp = emptySelections & wildCards .~ wcs where
   wcs = mapMaybe (fmap (uncurry Field . first getName) . traverse getMeasure) (Map.toList mp)
 
 enc :: Encoding Field -> Score -> Maybe Visualisation
-enc e s =
-  Visualisation <$> fromValue (HVega.toJSON e) <*> pure "FIXME: enc.visDescription" <*> pure s
+enc e score_ =
+  let setData = KM.insert "data" (object ["name" .= s "table"])
+                . KM.insert "width" (toJSON (s "container"))
+                . KM.insert "height" (toJSON (s "container"))
+  in Visualisation <$> fmap (over _WrappedObject setData) (fromValue (HVega.toJSON e)) <*> pure "FIXME: enc.visDescription" <*> pure score_
 
 {-| A field with a measurement
 -}
@@ -82,3 +88,6 @@ data Field = Field{ name :: String, fieldType :: Measurement }
 instance Relation Field where
   measurement = fieldType
   fieldName = Text.pack . name
+
+s :: String -> String
+s = id
