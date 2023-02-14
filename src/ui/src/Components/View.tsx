@@ -1,9 +1,12 @@
 import React, { ReactNode, useEffect, useState } from "react";
-import Api, { Visualisation } from "../Api";
+import Api, { Archetype, Visualisation } from "../Api";
 import { useParams } from "react-router-dom";
 import Page from "./Page";
 import { combineLatestWith, mergeMap, Subject, tap } from "rxjs";
 import { VegaLite } from "react-vega";
+import { HiViewGrid } from "react-icons/hi";
+import { AiOutlineDotChart, AiOutlineHeatMap, AiOutlineLineChart } from "react-icons/ai";
+import { TfiBarChart } from "react-icons/tfi";
 
 const ViewTitle: React.FC<{ viewId: string }> = ({ viewId }) => {
   const [viewTitle, setViewTitle] = useState<string>(viewId);
@@ -14,6 +17,24 @@ const ViewTitle: React.FC<{ viewId: string }> = ({ viewId }) => {
 
   return <span>{viewTitle}</span>
 
+}
+
+const ArchetypeC: React.FC<{archetype: Archetype}> = ({archetype}) => {
+  const cls = "flex-grow h-16 w-16"
+  switch (archetype) {
+    case "HorizontalBarChart":
+      return <TfiBarChart className={cls + " rotate-90"}/>
+    case "VerticalBarChart":
+      return <TfiBarChart className={cls  }/>
+    case "Heatmap":
+      return <AiOutlineHeatMap className={cls}/>;
+    case "Linechart":
+      return <AiOutlineLineChart className={cls}/>
+    case "Scatterplot":
+      return <AiOutlineDotChart className={cls}/>
+    default:
+      return <HiViewGrid className={cls}/>
+  }
 }
 
 const ViewPage: React.FC<{ viewId: string }> = ({ viewId }) => {
@@ -38,10 +59,10 @@ const ViewPage: React.FC<{ viewId: string }> = ({ viewId }) => {
 
   function mkVisRow(vis: Visualisation): ReactNode {
     return <li
-      className="cursor-pointer w-32 m-2 bg-slate-300 hover:bg-eucalyptus-300 hover:border-eucalyptus-700 border-slate-700 border-2"
+      className="cursor-pointer w-32 m-2 bg-slate-300 hover:bg-eucalyptus-300 hover:border-eucalyptus-700 border-slate-700 border-2 h-32 flex place-items-center"
       onClick={() => visSubj.next(vis)}
     >
-      {vis.visDescription}
+      <ArchetypeC archetype={vis.visArchetype}/>
     </li>;
   }
 

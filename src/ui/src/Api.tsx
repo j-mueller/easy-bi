@@ -1,7 +1,7 @@
-import { merge, shareReplay, Subject } from "rxjs";
+import { shareReplay } from "rxjs";
 import { fromFetch } from "rxjs/fetch"
 import { Observable } from "rxjs/internal/Observable";
-import { map, mergeMap, scan } from "rxjs/operators";
+import { mergeMap } from "rxjs/operators";
 import { VisualizationSpec } from "react-vega";
 
 export type QueryHash = string;
@@ -15,10 +15,19 @@ export type View = {
   vTitle: string;
 }
 
+export type Archetype =
+  "HorizontalBarChart"
+  | "VerticalBarChart"
+  | "Linechart"
+  | "Scatterplot"
+  | "Heatmap"
+  | "Misc";
+
 export type Visualisation = {
   visDefinition: VisualizationSpec;
   visDescription: string;
   visScore: number;
+  visArchetype: Archetype;
 }
 
 const views: Observable<Hashed<View>[]> =
@@ -28,7 +37,7 @@ const views: Observable<Hashed<View>[]> =
       shareReplay(1)
     )
 
-const view: (v: Hash) => Observable<View> = (v: string) =>
+const view: (v: ViewHash) => Observable<View> = (v: string) =>
   fromFetch("/api/views/" + v)
     .pipe(
       mergeMap(val => val.json().then(vl => vl as View)),

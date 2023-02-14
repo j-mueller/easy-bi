@@ -10,14 +10,14 @@ module EasyBI.Server.Visualisation
   , visualisations
   ) where
 
-import Control.Lens                  (over, (&), (.~))
+import Control.Lens                  (over, view, (&), (.~))
 import Data.Aeson                    (FromJSON (..), ToJSON (..), object, (.=))
 import Data.Aeson.KeyMap             qualified as KM
 import Data.Bifunctor                (Bifunctor (..))
 import Data.List                     (sortOn)
 import Data.Map                      (Map)
 import Data.Map                      qualified as Map
-import Data.Maybe                    (mapMaybe)
+import Data.Maybe                    (fromMaybe, mapMaybe)
 import Data.Ord                      (Down (..))
 import Data.Text                     qualified as Text
 import EasyBI.Sql.Effects.Types      (RowType (..), SqlType (..), Tp (..),
@@ -26,9 +26,11 @@ import EasyBI.Util.JSON              (WrappedObject (..), _WrappedObject,
                                       fromValue)
 import EasyBI.Vis.HVega              qualified as HVega
 import EasyBI.Vis.Rules              (makeChart)
-import EasyBI.Vis.Types              (Encoding, Measurement (..), Relation (..),
-                                      Score (..), Selections, emptySelections,
-                                      runRule, score, wildCards)
+import EasyBI.Vis.Types              (Archetype (Misc), Encoding,
+                                      Measurement (..), Relation (..),
+                                      Score (..), Selections, archetype,
+                                      emptySelections, runRule, score,
+                                      wildCards)
 import GHC.Generics                  (Generic)
 import Language.SQL.SimpleSQL.Syntax (Name (..))
 
@@ -42,6 +44,7 @@ data Visualisation =
     -- ^ Description
     , visScore       :: Score
     -- ^ Score
+    , visArchetype   :: Archetype
     }
     deriving stock (Generic, Show)
     deriving anyclass (ToJSON, FromJSON)
@@ -78,7 +81,11 @@ enc e score_ =
   let setData = KM.insert "data" (object ["name" .= s "table"])
                 . KM.insert "width" (toJSON (s "container"))
                 . KM.insert "height" (toJSON (s "container"))
-  in Visualisation <$> fmap (over _WrappedObject setData) (fromValue (HVega.toJSON e)) <*> pure "FIXME: enc.visDescription" <*> pure score_
+  in Visualisation
+      <$> fmap (over _WrappedObject setData) (fromValue (HVega.toJSON e))
+      <*> pure "FIXME: enc.visDescription"
+      <*> pure score_
+      <*> pure (fromMaybe Misc (view archetype e))
 
 {-| A field with a measurement
 -}

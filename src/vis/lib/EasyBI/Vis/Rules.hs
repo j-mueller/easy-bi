@@ -21,9 +21,10 @@ module EasyBI.Vis.Rules
 
 import Control.Applicative (Alternative (..))
 import Control.Monad       (guard)
-import EasyBI.Vis.Types    (Encoding, Mark (..), Measurement (..), Relation,
-                            Rule, colorChannel, fieldPositionChannel,
-                            markChannel, measurement, positionX, positionY)
+import EasyBI.Vis.Types    (Archetype (..), Encoding, Mark (..),
+                            Measurement (..), Relation, Rule, archetype,
+                            colorChannel, fieldPositionChannel, markChannel,
+                            measurement, positionX, positionY)
 import EasyBI.Vis.Utils    (choose, setOrFail')
 
 {-| Visualise data in a bar chart
@@ -38,9 +39,11 @@ barChart dims = do
   let horz = do
         setOrFail' @(Encoding f) positionX (fieldPositionChannel y)
         setOrFail' @(Encoding f) positionY (fieldPositionChannel x)
+        setOrFail' @(Encoding f) archetype HorizontalBarChart
       vert = do
         setOrFail' @(Encoding f) positionX (fieldPositionChannel x)
         setOrFail' @(Encoding f) positionY (fieldPositionChannel y)
+        setOrFail' @(Encoding f) archetype VerticalBarChart
   horz <|> vert
   pure remaining
 
@@ -55,6 +58,7 @@ scatterplot dims = do
   guard $ measurement y == Quantitative
   setOrFail' @(Encoding f) positionX (fieldPositionChannel x)
   setOrFail' @(Encoding f) positionY (fieldPositionChannel y)
+  setOrFail' @(Encoding f) archetype Scatterplot
   pure remaining
 
 {-| Line chart for temporal data
@@ -68,6 +72,7 @@ lineChart dims = do
   guard $ measurement y `elem` [Quantitative, Ordinal]
   setOrFail' @(Encoding f) positionX (fieldPositionChannel x)
   setOrFail' @(Encoding f) positionY (fieldPositionChannel y)
+  setOrFail' @(Encoding f) archetype Linechart
   pure remaining
 
 {-| Heatmap for two nominal / ordinal dimensions with a quantitative measure
@@ -82,6 +87,7 @@ heatmap dims = do
   (c, rest) <- choose rest'_
   guard $ measurement c == Quantitative
   setOrFail' @(Encoding f) colorChannel c
+  setOrFail' @(Encoding f) archetype Heatmap
   pure rest
 
 {-| Display a dimension with a color scale

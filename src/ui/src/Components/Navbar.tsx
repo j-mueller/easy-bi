@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { HiChevronDoubleLeft, HiChevronDoubleRight, HiOutlineBeaker, HiOutlineDatabase, HiOutlineHome } from "react-icons/hi";
+import { HiChevronDoubleLeft, HiChevronDoubleRight, HiOutlineDatabase, HiOutlineHome } from "react-icons/hi";
 import { Link, useMatch, useResolvedPath } from "react-router-dom";
 import { map, Observable } from "rxjs";
 import StatusBar from "./StatusBar";

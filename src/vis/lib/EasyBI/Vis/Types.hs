@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds              #-}
+{-# LANGUAGE DeriveAnyClass         #-}
 {-# LANGUAGE DeriveFoldable         #-}
 {-# LANGUAGE DeriveFunctor          #-}
 {-# LANGUAGE DeriveTraversable      #-}
@@ -24,6 +25,7 @@ module EasyBI.Vis.Types
   , PositionChannel (..)
   , Scale (..)
   , ScaleTp (..)
+  , archetype
   , colorChannel
   , emptyEncoding
   , field
@@ -37,6 +39,8 @@ module EasyBI.Vis.Types
   , wildCardsUsed
     -- * Relations
   , Relation (..)
+    -- * Archetypes
+  , Archetype (..)
     -- * User selections
   , Selections (..)
   , color
@@ -67,6 +71,7 @@ import Data.Maybe                (isJust)
 import Data.Semigroup            (Sum (..))
 import Data.Text                 (Text)
 import EasyBI.Vis.Utils          (chooseSubList, setOrFail')
+import GHC.Generics              (Generic)
 
 {-| Things that can be measured
 -}
@@ -104,6 +109,19 @@ fieldPositionChannel f = PositionChannel f "" emptyScale
 data OutOf = OutOf Int Int
   deriving (Eq, Show)
 
+{-| Visualisation archetype. This is only used for UX purposes
+(showing a symbol to the user)
+-}
+data Archetype =
+  HorizontalBarChart
+  | VerticalBarChart
+  | Linechart
+  | Scatterplot
+  | Heatmap
+  | Misc
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
 -- | Specifies how a relation is displayed in graph
 data Encoding f
   = Encoding
@@ -111,7 +129,8 @@ data Encoding f
         _positionY     :: Maybe (PositionChannel f),
         _colorChannel  :: Maybe f,
         _markChannel   :: Maybe Mark,
-        _wildCardsUsed :: Maybe OutOf
+        _wildCardsUsed :: Maybe OutOf,
+        _archetype     :: Maybe Archetype
       } deriving (Eq, Show, Functor, Foldable, Traversable)
 
 {-| Ranking of an encoding
@@ -145,6 +164,7 @@ emptyEncoding =
     , _colorChannel = Nothing
     , _markChannel = Nothing
     , _wildCardsUsed = Nothing
+    , _archetype = Nothing
     }
 
 -- | Data submitted by the user
