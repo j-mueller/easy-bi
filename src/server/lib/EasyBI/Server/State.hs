@@ -5,6 +5,7 @@ module EasyBI.Server.State
   ( ServerState (..)
   , emptyState
   , findQuery
+  , findView
   , stateFromList
   , views
   ) where
@@ -20,14 +21,14 @@ import Language.SQL.SimpleSQL.Syntax (Name (..))
 
 data ServerState =
   ServerState
-    { ssViews   :: [(NiceHash (View Hashed), View Hashed)]
+    { ssViews   :: Map (NiceHash (View Hashed)) (View Hashed)
     , ssQueries :: Map (NiceHash TypedQueryExpr) TypedQueryExpr
     }
 
 {-| Empty server state
 -}
 emptyState :: ServerState
-emptyState = ServerState [] mempty
+emptyState = ServerState mempty mempty
 
 views :: Catalog -> [View Plain]
 views =
@@ -51,10 +52,13 @@ stateFromList views_ =
       viewsH = mkV <$> views_
 
   in ServerState
-      { ssViews = fmap (\(a, b, _) -> (a, b)) viewsH
+      { ssViews = Map.fromList (fmap (\(a, b, _) -> (a, b)) viewsH)
       , ssQueries = Map.fromList $ fmap (\(_, a, c) -> (hNiceHash $ vQuery a, c)) viewsH
       }
 
 -- | Lookup the query definition
 findQuery :: ServerState -> NiceHash TypedQueryExpr -> Maybe TypedQueryExpr
 findQuery ServerState{ssQueries} h = Map.lookup h ssQueries
+
+findView :: ServerState -> NiceHash (View Hashed) -> Maybe (View Hashed)
+findView ServerState{ssViews} h = Map.lookup h ssViews

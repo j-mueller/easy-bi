@@ -12,7 +12,10 @@ import EasyBI.Util.NiceHash        (Hashed, NiceHash, WithHash)
 import Servant.API                 (Capture, Get, JSON, type (:<|>), type (:>))
 
 type API =
-  "health" :> Get '[JSON] ()
-  :<|> "views" :> Get '[JSON] [WithHash (View Hashed)]
-  :<|> "vis"   :> Capture "query" (NiceHash TypedQueryExpr) :> Get '[JSON] [Visualisation]
-  :<|> "eval"  :> Capture "query" (NiceHash TypedQueryExpr) :> Get '[JSON] [WrappedObject]
+  "api" :> (
+    "health" :> Get '[JSON] ()
+    :<|> "views" :> Get '[JSON] [WithHash (View Hashed)]
+    :<|> "views" :> Capture "view"  (NiceHash (View Hashed))  :> Get '[JSON] (View Hashed)
+    :<|> "vis"   :> Capture "query" (NiceHash TypedQueryExpr) :> Get '[JSON] [Visualisation]
+    :<|> "eval"  :> Capture "query" (NiceHash TypedQueryExpr) :> Get '[JSON] [WrappedObject]
+  )

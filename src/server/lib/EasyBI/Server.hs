@@ -9,17 +9,19 @@ module EasyBI.Server
 
 import Control.Monad.Except        (MonadError (..))
 import Control.Monad.IO.Class      (MonadIO (..))
+import Data.Map                    qualified as Map
 import Data.Proxy                  (Proxy (..))
 import Data.String                 (IsString (..))
 import EasyBI.Server.API           (API)
 import EasyBI.Server.Eval          (DbConnectionPool, evalQuery)
 import EasyBI.Server.State         (ServerState (..))
 import EasyBI.Server.State         qualified as State
+import EasyBI.Server.View          (View)
 import EasyBI.Server.Visualisation (Visualisation)
 import EasyBI.Server.Visualisation qualified as V
 import EasyBI.Sql.Catalog          (TypedQueryExpr (..))
 import EasyBI.Util.JSON            (WrappedObject (..))
-import EasyBI.Util.NiceHash        (NiceHash)
+import EasyBI.Util.NiceHash        (Hashed, NiceHash)
 import Network.Wai.Handler.Warp    qualified as Warp
 import Servant.API                 ((:<|>) (..))
 import Servant.Server              (Server, ServerError (..), err404, serve)
@@ -39,21 +41,28 @@ easyBIServer :: DbConnectionPool -> ServerState -> Server API
 easyBIServer pool state =
   health
     :<|> views state
+    :<|> view state
     :<|> vis state
     :<|> eval pool state
   where
     health = pure ()
-    views ServerState{ssViews} = pure ssViews
+    views ServerState{ssViews} = pure (Map.toList ssViews)
 
 vis :: (MonadError ServerError m) => ServerState -> NiceHash TypedQueryExpr -> m [Visualisation]
 vis state hsh = V.visualisations . teType <$> lkp state hsh
 
+view :: (MonadError ServerError m) => ServerState -> NiceHash (View Hashed) -> m (View Hashed)
+view state = lookupFromMaybe (State.findView state)
+
 lkp :: (MonadError ServerError m) => ServerState -> NiceHash TypedQueryExpr -> m TypedQueryExpr
-lkp state hsh = case State.findQuery state hsh of
-  Nothing ->
-    let msg = "Not found: " <> show hsh
-    in throwError $ err404 { errBody = fromString msg }
-  Just a -> pure a
+lkp state = lookupFromMaybe (State.findQuery state)
 
 eval :: (MonadIO m, MonadError ServerError m) => DbConnectionPool -> ServerState -> NiceHash TypedQueryExpr -> m [WrappedObject]
 eval pool state hsh = lkp state hsh >>= liftIO . evalQuery pool . teQuery
+
+lookupFromMaybe :: (MonadError ServerError m, Show k) => (k -> Maybe v) -> k -> m v
+lookupFromMaybe f k = case f k of
+  Nothing ->
+    let msg = "Not found: " <> show k
+    in throwError $ err404 { errBody = fromString msg }
+  Just a -> pure a

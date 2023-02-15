@@ -12,6 +12,8 @@ let
         pkgs.pkgconfig
         pkgs.haskellPackages.hspec-discover
         pkgs.haskellPackages.cabal-plan
+        pkgs.nodejs
+        pkgs.nodePackages.npm
     ];
 
     
