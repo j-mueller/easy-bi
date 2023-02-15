@@ -9,9 +9,10 @@ module Main
 import Control.Lens     ((&), (.~))
 import Data.Text        qualified as Text
 import EasyBI.Vis.Rules (makeChart)
-import EasyBI.Vis.Types (Mark (..), Measurement (..), OutOf (..), Relation (..),
-                         emptyEncoding, emptySelections, fieldPositionChannel,
-                         markChannel, positionX, positionY, runRule, wildCards,
+import EasyBI.Vis.Types (Archetype (..), Mark (..), Measurement (..),
+                         OutOf (..), Relation (..), archetype, emptyEncoding,
+                         emptySelections, fieldPositionChannel, markChannel,
+                         positionX, positionY, runRule, wildCards,
                          wildCardsUsed)
 import Test.Tasty       (TestTree, defaultMain, testGroup)
 import Test.Tasty.HUnit (Assertion, assertEqual, testCase)
@@ -36,6 +37,7 @@ scatterplot = do
                   & positionY .~ Just (fieldPositionChannel Price)
                   & markChannel .~ Just Point
                   & wildCardsUsed .~ Just (2 `OutOf` 2)
+                  & archetype .~ Just Scatterplot
   case encodings of
     (x:_) -> assertEqual "Scatterplot encoding" expected x
     _     -> error "Empty encodings"
