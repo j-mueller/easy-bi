@@ -9,9 +9,10 @@ module EasyBI.Vis.Utils
   , setOrFail'
   ) where
 
-import Control.Applicative (Alternative (..))
-import Control.Lens        (Lens', (&), (.~), (^.))
-import Control.Monad.State (MonadState, get, put)
+import Control.Applicative       (Alternative (..))
+import Control.Lens              (Lens', (&), (.~), (^.))
+import Control.Monad.Logic.Class (MonadLogic, (>>-))
+import Control.Monad.State       (MonadState, get, put)
 
 {-| Set a 'Maybe' field to a value. Fails if the field is already set to a different value.
 -}
@@ -37,10 +38,8 @@ choose (x:xs) = go ([], x, xs) where
 
 {-| Choose a sub-list of the input list
 -}
-chooseSubList :: (Monad g, Alternative g) => [a] -> g ([a], [a])
+chooseSubList :: (MonadLogic g) => [a] -> g ([a], [a])
 chooseSubList r = go [] r where
   -- TODO: Can we make this more efficient?
   go current [] = pure (current, [])
-  go current rest = do
-    (y, ys) <- choose rest
-    pure (current, rest) <|> go (y:current) ys
+  go current rest = pure (current, rest) <|> (choose rest >>- \(y, ys) -> go (y:current) ys)

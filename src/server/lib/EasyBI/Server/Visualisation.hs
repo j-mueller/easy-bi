@@ -53,10 +53,11 @@ visualisations :: TyScheme TyVar (Tp TyVar) -> [Visualisation]
 visualisations =
   let addScore x = traverse score (x, x) in
   maybe []
-    (mapMaybe (uncurry enc)
+    (take 10
+      . mapMaybe (uncurry enc)
       . sortOn (Down . snd)
       . mapMaybe addScore
-      . runRule 8 makeChart)
+      . runRule 50 makeChart)
     . selections
 
 selections :: TyScheme TyVar (Tp TyVar) -> Maybe (Selections Field)

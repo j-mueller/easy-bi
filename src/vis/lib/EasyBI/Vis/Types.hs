@@ -58,7 +58,6 @@ module EasyBI.Vis.Types
   ) where
 
 import Codec.Serialise           (Serialise)
-import Control.Applicative       (Alternative (..))
 import Control.Lens              (makeFields, makeLenses, (^.))
 import Control.Monad             (guard)
 import Control.Monad.Logic       qualified as LogicT
@@ -196,7 +195,7 @@ type Rule f = forall m. (MonadLogic m, MonadState (Encoding f) m) => [f] -> m [f
 
 {-| Initialise the state with selections from the user
 -}
-selectedDimensions :: forall m f. (Alternative m, Eq f, MonadState (Encoding f) m) => Selections f -> m [f]
+selectedDimensions :: forall m f. (MonadLogic m, Eq f, MonadState (Encoding f) m) => Selections f -> m [f]
 selectedDimensions s = do
   (wcs, _) <- chooseSubList (s ^. wildCards)
   setOrFail' wildCardsUsed (length wcs `OutOf` length (s ^. wildCards))
