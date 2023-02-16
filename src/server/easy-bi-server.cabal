@@ -36,7 +36,7 @@ library
     EasyBI.Server.API
     EasyBI.Server.Eval
     EasyBI.Server.State
-    EasyBI.Server.View
+    EasyBI.Server.Cube
     EasyBI.Server.Visualisation
     EasyBI.Server
     EasyBI.Util.JSON

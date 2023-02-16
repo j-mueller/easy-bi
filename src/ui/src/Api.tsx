@@ -6,13 +6,13 @@ import { VisualizationSpec } from "react-vega";
 
 export type QueryHash = string;
 
-export type ViewHash = string;
+export type CubeHash = string;
 
-export type Hashed<T> = [ViewHash, T]
+export type Hashed<T> = [CubeHash, T]
 
-export type View = {
-  vQuery: QueryHash;
-  vTitle: string;
+export type Cube = {
+  cQuery: QueryHash;
+  cTitle: string;
 }
 
 export type Archetype =
@@ -30,17 +30,17 @@ export type Visualisation = {
   visArchetype: Archetype;
 }
 
-const views: Observable<Hashed<View>[]> =
-  fromFetch("/api/views")
+const cubes: Observable<Hashed<Cube>[]> =
+  fromFetch("/api/cubes")
     .pipe(
-      mergeMap(val => val.json().then(vl => vl as Hashed<View>[])),
+      mergeMap(val => val.json().then(vl => vl as Hashed<Cube>[])),
       shareReplay(1)
     )
 
-const view: (v: ViewHash) => Observable<View> = (v: string) =>
-  fromFetch("/api/views/" + v)
+const cube: (v: CubeHash) => Observable<Cube> = (v: string) =>
+  fromFetch("/api/cubes/" + v)
     .pipe(
-      mergeMap(val => val.json().then(vl => vl as View)),
+      mergeMap(val => val.json().then(vl => vl as Cube)),
       shareReplay(1)
     )
 
@@ -58,4 +58,4 @@ const evl: (q: QueryHash) => Observable<any[]> = (q: QueryHash) =>
       shareReplay(1)
     )
 
-export default { views, view, vis, evl }
+export default { cubes, cube, vis, evl }

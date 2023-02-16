@@ -214,10 +214,10 @@ selectedDimensions s = do
 
 {-
 -}
-runRule :: forall f. Eq f => Rule f -> Selections f -> [Encoding f]
-runRule rule s =
+runRule :: forall f. Eq f => Int -> Rule f -> Selections f -> [Encoding f]
+runRule n rule s =
   let rule' = selectedDimensions s >>= rule >>= guard . null
-  in LogicT.observeAll (execStateT rule' emptyEncoding)
+  in LogicT.observeMany n (execStateT rule' emptyEncoding)
 
 {-| Class of relations between fields (from the Mackinlay paper)
 -}

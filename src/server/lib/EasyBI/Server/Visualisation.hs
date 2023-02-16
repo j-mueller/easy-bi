@@ -56,7 +56,7 @@ visualisations =
     (mapMaybe (uncurry enc)
       . sortOn (Down . snd)
       . mapMaybe addScore
-      . runRule makeChart)
+      . runRule 8 makeChart)
     . selections
 
 selections :: TyScheme TyVar (Tp TyVar) -> Maybe (Selections Field)

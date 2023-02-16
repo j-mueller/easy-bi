@@ -31,7 +31,7 @@ tests = testGroup "unit tests"
 scatterplot :: Assertion
 scatterplot = do
   let sel = emptySelections & wildCards .~ [Price, Mileage]
-      encodings = runRule makeChart sel
+      encodings = runRule 1 makeChart sel
       expected = emptyEncoding
                   & positionX .~ Just (fieldPositionChannel Mileage)
                   & positionY .~ Just (fieldPositionChannel Price)

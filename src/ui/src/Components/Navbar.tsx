@@ -9,11 +9,11 @@ type SubItem = { name: string, linkTo: string }
 
 type NavItem = { name: string, icon: React.FC<{ className: string }>, linkTo: string, subItems?: Observable<SubItem[]> }
 
-function biViewLink(viewId: string): string { return `/views/${viewId}` }
+function biViewLink(cubeId: string): string { return `/cubes/${cubeId}` }
 
 const allItems: NavItem[] =
     [{ name: "Home", icon: HiOutlineHome, linkTo: "/" }
-        , { name: "Views", icon: HiOutlineDatabase, linkTo: "/views", subItems: Api.views.pipe(map(views => views.map(view => ({ name: view[1].vTitle, linkTo: biViewLink(view[0]) })))) }
+        , { name: "Cubes", icon: HiOutlineDatabase, linkTo: "/cubes", subItems: Api.cubes.pipe(map(cubes => cubes.map(cube => ({ name: cube[1].cTitle, linkTo: biViewLink(cube[0]) })))) }
     ]
 
 const SubLink: React.FC<{ item: SubItem }> = ({ item }) => {

@@ -26,14 +26,25 @@ CREATE TABLE sales(
   "DEALSIZE" TEXT
 );
 
-CREATE VIEW total_sales AS
-  SELECT SUM(sales.QUANTITYORDERED * sales.PRICEEACH) as totalSales
-  FROM sales
-
-CREATE VIEW total_sales_by_country AS
+CREATE VIEW sales_view AS
   SELECT
     SUM(sales."QUANTITYORDERED" * sales."PRICEEACH") as totalSales,
-    sales."COUNTRY" as country
+    SUM(sales."PRICEEACH") as totalPriceEach,
+    sales."COUNTRY" as country,
+    sales."STATUS" as status,
+    sales."QTR_ID" as qtr_id,
+    sales."MONTH_ID" as month_id,
+    sales."YEAR_ID" as year_id,
+    sales."PRODUCTLINE" as productline,
+    sales."TERRITORY" as territory,
+    sales."PRODUCTCODE" as productcode
   FROM sales
-  GROUP BY country
-
+  GROUP BY
+    country,
+    status,
+    qtr_id,
+    month_id,
+    year_id,
+    productline,
+    territory,
+    productcode

@@ -4,7 +4,7 @@ module EasyBI.Server.API
   ( API
   ) where
 
-import EasyBI.Server.View          (View)
+import EasyBI.Server.Cube          (Cube)
 import EasyBI.Server.Visualisation (Visualisation)
 import EasyBI.Sql.Catalog          (TypedQueryExpr)
 import EasyBI.Util.JSON            (WrappedObject)
@@ -14,8 +14,8 @@ import Servant.API                 (Capture, Get, JSON, type (:<|>), type (:>))
 type API =
   "api" :> (
     "health" :> Get '[JSON] ()
-    :<|> "views" :> Get '[JSON] [WithHash (View Hashed)]
-    :<|> "views" :> Capture "view"  (NiceHash (View Hashed))  :> Get '[JSON] (View Hashed)
+    :<|> "cubes" :> Get '[JSON] [WithHash (Cube Hashed)]
+    :<|> "cubes" :> Capture "cube"  (NiceHash (Cube Hashed))  :> Get '[JSON] (Cube Hashed)
     :<|> "vis"   :> Capture "query" (NiceHash TypedQueryExpr) :> Get '[JSON] [Visualisation]
     :<|> "eval"  :> Capture "query" (NiceHash TypedQueryExpr) :> Get '[JSON] [WrappedObject]
   )

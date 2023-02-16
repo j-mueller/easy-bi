@@ -71,7 +71,7 @@ runCommand :: (MonadIO m, MonadLog m, MonadError AppError m) => Command -> m ()
 runCommand = \case
   CheckTypes schemaConfig -> void (loadSchema schemaConfig)
   StartServer schemaConfig serverConfig dbBackend -> do
-    (stateFromList . State.views -> serverState) <- loadSchema schemaConfig
+    (stateFromList . State.cubes -> serverState) <- loadSchema schemaConfig
     liftIO $ Eval.withDbConnectionPool dbBackend $ \pool ->
       runServer pool serverState serverConfig
 
