@@ -45,12 +45,12 @@ const CubePage: React.FC<{ cubeId: string }> = ({ cubeId }) => {
   useEffect(() => {
     const viewDetails = Api.cube(cubeId);
     const sub = viewDetails.pipe(mergeMap(cube => Api.vis(cube.cQuery)), tap(x => { ((vis.length == 0) && (x.length > 0)) ? visSubj.next(x[0]) : {} })).subscribe(setVis);
-    const queryResult = viewDetails.pipe(mergeMap(v => Api.evl(v.cQuery)));
+    const queryResult = visSubj.pipe(mergeMap(v => Api.evl({q: v.visQuery, fields: v.visFieldNames})));
 
     const sub2 =
       visSubj
         .pipe(combineLatestWith(queryResult))
-        .subscribe(([view, dt]) => setVisComp(<VegaLite className="flex-grow flex border border-gray-200" spec={view.visDefinition} actions={false} data={{ table: dt }} />));
+        .subscribe(([view, dt]) => setVisComp(<VegaLite className="flex-grow flex border border-gray-200" spec={view.visDefinition} actions={true} data={{ table: dt }} />));
 
     const sub3 = visSubj.subscribe(console.log);
 

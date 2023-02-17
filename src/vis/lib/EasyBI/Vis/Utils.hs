@@ -11,6 +11,7 @@ module EasyBI.Vis.Utils
 
 import Control.Applicative       (Alternative (..))
 import Control.Lens              (Lens', (&), (.~), (^.))
+import Control.Monad             (guard)
 import Control.Monad.Logic.Class (MonadLogic, (>>-))
 import Control.Monad.State       (MonadState, get, put)
 
@@ -38,8 +39,7 @@ choose (x:xs) = go ([], x, xs) where
 
 {-| Choose a sub-list of the input list
 -}
-chooseSubList :: (MonadLogic g) => [a] -> g ([a], [a])
-chooseSubList r = go [] r where
-  -- TODO: Can we make this more efficient?
+chooseSubList :: (MonadLogic g) => Int -> [a] -> g ([a], [a])
+chooseSubList maxLength r = go [] r where
   go current [] = pure (current, [])
-  go current rest = pure (current, rest) <|> (choose rest >>- \(y, ys) -> go (y:current) ys)
+  go current rest = pure (current, rest) <|> (guard (length current < maxLength) >> choose rest >>- \(y, ys) -> go (y:current) ys)

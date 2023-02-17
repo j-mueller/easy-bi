@@ -16,6 +16,7 @@
 {-# LANGUAGE RankNTypes             #-}
 {-# LANGUAGE TemplateHaskell        #-}
 {-# LANGUAGE TypeApplications       #-}
+{-# LANGUAGE UndecidableInstances   #-}
 
 module EasyBI.Vis.Types
   ( Encoding (..)
@@ -36,7 +37,6 @@ module EasyBI.Vis.Types
   , scale
   , scaleTp
   , title
-  , wildCardsUsed
     -- * Relations
   , Relation (..)
     -- * Archetypes
@@ -72,41 +72,55 @@ import Data.Text                 (Text)
 import EasyBI.Vis.Utils          (chooseSubList, setOrFail')
 import GHC.Generics              (Generic)
 
+{-| Class of relations between fields (from the Mackinlay paper)
+-}
+class Relation a where
+  measurement :: a -> Measurement
+  fieldName :: a -> Text
+  fieldLabel :: a -> Text
+  fieldLabel = fieldName
+
 {-| Things that can be measured
 -}
 data Measurement = Nominal | Ordinal | Quantitative | TemporalAbs | TemporalRel -- | Geofeature
-  deriving (Eq, Show)
+  deriving stock (Eq, Ord, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON, Serialise)
 
 {-| Scales available in HVega.
 -}
 data ScaleTp = SLinear | SLog | SPow | STime | SUtc | SQuantile | SOrdinal
-  deriving (Eq, Show)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON, Serialise)
 
 data Scale =
   Scale
     { _scaleTp :: Maybe ScaleTp
-    } deriving (Eq, Show)
+    } deriving stock (Eq, Show, Generic)
+      deriving anyclass (ToJSON, FromJSON, Serialise)
 
 emptyScale :: Scale
 emptyScale = Scale Nothing
 
 data Mark = Bar | Point | Line | Rect
-  deriving (Eq, Ord, Show)
+  deriving stock (Eq, Ord, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON, Serialise)
 
 data PositionChannel f
   = PositionChannel
       { _positionChannelField :: f
       , _positionChannelTitle :: Text
       , _positionChannelScale :: Scale
-      } deriving (Eq, Show, Functor, Foldable, Traversable)
+      } deriving (Eq, Show, Functor, Foldable, Traversable, Generic)
+        deriving anyclass (ToJSON, FromJSON, Serialise)
 
-fieldPositionChannel :: f -> PositionChannel f
-fieldPositionChannel f = PositionChannel f "" emptyScale
+fieldPositionChannel :: Relation f => f -> PositionChannel f
+fieldPositionChannel f = PositionChannel f (fieldLabel f) emptyScale
 
 {-| How many out of a maximum number
 -}
 data OutOf = OutOf Int Int
-  deriving (Eq, Show)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 {-| Visualisation archetype. This is only used for UX purposes
 (showing a symbol to the user)
@@ -119,18 +133,21 @@ data Archetype =
   | Heatmap
   | Misc
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
+  deriving anyclass (ToJSON, FromJSON, Serialise)
 
 -- | Specifies how a relation is displayed in graph
 data Encoding f
   = Encoding
-      { _positionX     :: Maybe (PositionChannel f),
-        _positionY     :: Maybe (PositionChannel f),
-        _colorChannel  :: Maybe f,
-        _markChannel   :: Maybe Mark,
-        _wildCardsUsed :: Maybe OutOf,
-        _archetype     :: Maybe Archetype
-      } deriving (Eq, Show, Functor, Foldable, Traversable)
+      { _positionX    :: Maybe (PositionChannel f),
+        _positionY    :: Maybe (PositionChannel f),
+        _colorChannel :: Maybe f,
+        _markChannel  :: Maybe Mark,
+        _archetype    :: Maybe Archetype
+      } deriving stock (Eq, Show, Functor, Foldable, Traversable, Generic)
+
+instance (ToJSON (PositionChannel f), ToJSON f) => ToJSON (Encoding f)
+instance (FromJSON (PositionChannel f), FromJSON f) => FromJSON (Encoding f)
+instance (Serialise f) => Serialise (Encoding f)
 
 {-| Ranking of an encoding
 -}
@@ -142,18 +159,14 @@ newtype Score = Score{unScore :: Double }
 {-| How "good" (informative) is the encoding?
 -}
 score :: Encoding f -> Maybe Score
-score Encoding{_positionX, _positionY, _colorChannel, _markChannel, _wildCardsUsed} = do
+score Encoding{_positionX, _positionY, _colorChannel, _markChannel} = do
   let definedScore :: Maybe a -> Score
       definedScore = maybe 0 (const 1)
-
-      outOfScore :: OutOf -> Score
-      outOfScore (OutOf _ 0) = 0
-      outOfScore (OutOf a b) = 2 * Score (fromIntegral a / fromIntegral b)
 
       defScores = definedScore _positionX <> definedScore _positionY <> definedScore _colorChannel <> definedScore _markChannel
 
   guard (isJust _positionX || isJust _positionY)
-  pure (defScores <> maybe 0 outOfScore _wildCardsUsed)
+  pure defScores
 
 emptyEncoding :: Encoding f
 emptyEncoding =
@@ -162,7 +175,6 @@ emptyEncoding =
     , _positionY = Nothing
     , _colorChannel = Nothing
     , _markChannel = Nothing
-    , _wildCardsUsed = Nothing
     , _archetype = Nothing
     }
 
@@ -174,7 +186,8 @@ data Selections f =
     , _YAxis        :: Maybe f
     , _Color        :: Maybe f
     , _selectedMark :: Maybe Mark
-    } deriving (Eq, Show)
+    } deriving stock (Eq, Show, Generic)
+      deriving anyclass (ToJSON, FromJSON)
 
 emptySelections :: Selections f
 emptySelections = Selections [] Nothing Nothing Nothing Nothing
@@ -195,10 +208,9 @@ type Rule f = forall m. (MonadLogic m, MonadState (Encoding f) m) => [f] -> m [f
 
 {-| Initialise the state with selections from the user
 -}
-selectedDimensions :: forall m f. (MonadLogic m, Eq f, MonadState (Encoding f) m) => Selections f -> m [f]
+selectedDimensions :: forall m f. (Relation f, MonadLogic m, Eq f, MonadState (Encoding f) m) => Selections f -> m [f]
 selectedDimensions s = do
-  (wcs, _) <- chooseSubList (s ^. wildCards)
-  setOrFail' wildCardsUsed (length wcs `OutOf` length (s ^. wildCards))
+  (wcs, _) <- chooseSubList 3 (s ^. wildCards)
   x' <- case s ^. xAxis of
           Nothing -> pure []
           Just a  -> setOrFail' positionX (fieldPositionChannel a) *> pure [a]
@@ -213,13 +225,7 @@ selectedDimensions s = do
 
 {-
 -}
-runRule :: forall f. Eq f => Int -> Rule f -> Selections f -> [Encoding f]
+runRule :: forall f. (Relation f, Eq f) => Int -> Rule f -> Selections f -> [Encoding f]
 runRule n rule s =
   let rule' = selectedDimensions s >>= rule >>= guard . null
   in LogicT.observeMany n (execStateT rule' emptyEncoding)
-
-{-| Class of relations between fields (from the Mackinlay paper)
--}
-class Relation a where
-  measurement :: a -> Measurement
-  fieldName :: a -> Text

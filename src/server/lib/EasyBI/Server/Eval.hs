@@ -15,19 +15,22 @@ module EasyBI.Server.Eval
     -- * JSON rows
   , asJSONRowsPostgres
   , asJSONRowsSqlite
+    -- * Restricting queries
+  , restrictTo
   ) where
 
 import Control.Exception              (bracket)
 import Data.Pool                      (Pool, PoolConfig (..))
 import Data.Pool                      qualified as Pool
+import Data.Set                       qualified as Set
 import Data.String                    (IsString (..))
 import Database.SQLite.Simple         qualified as Sqlite
 import EasyBI.Util.JSON               (WrappedObject (..))
 import Language.SQL.SimpleSQL.Dialect qualified as Dialect
 import Language.SQL.SimpleSQL.Pretty  qualified as Pretty
-import Language.SQL.SimpleSQL.Syntax  (Alias (..), Name (..), QueryExpr (..),
-                                       ScalarExpr (..), TableRef (..),
-                                       makeSelect)
+import Language.SQL.SimpleSQL.Syntax  (Alias (..), GroupingExpr (..), Name (..),
+                                       QueryExpr (..), ScalarExpr (..),
+                                       TableRef (..), makeSelect)
 
 data DbBackend
   = SqliteBackend{ sqliteFile :: FilePath }
@@ -135,3 +138,18 @@ asJSONRowsPostgres e =
             , qeSelectList = [(App [rtj] [dot], Nothing)]
             }
       }
+
+{-| Restrict the SELECT and GROUP bits of the query to
+the fields in the given list
+-}
+restrictTo :: MonadFail m => [String] -> QueryExpr -> m QueryExpr
+restrictTo (Set.fromList -> fields) = \case
+  x@Select{qeSelectList=allSelects, qeGroupBy=allGroups} ->
+    let hasName (Just (Name _ n)) = Set.member n fields
+        hasName _                 = False
+        isGroup (SimpleGroup  (Iden [Name _ n])) = Set.member n fields
+        isGroup _                                = False
+        newSelects = filter (hasName . snd) allSelects
+        newGroups  = filter isGroup allGroups
+    in pure x{qeSelectList = newSelects, qeGroupBy = newGroups}
+  _ -> fail "Unsupported query"

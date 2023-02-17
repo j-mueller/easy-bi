@@ -28,6 +28,8 @@ export type Visualisation = {
   visDescription: string;
   visScore: number;
   visArchetype: Archetype;
+  visFieldNames: string[];
+  visQuery: QueryHash;
 }
 
 const cubes: Observable<Hashed<Cube>[]> =
@@ -51,8 +53,8 @@ const vis: (q: QueryHash) => Observable<Visualisation[]> = (q: QueryHash) =>
       shareReplay(1)
     )
 
-const evl: (q: QueryHash) => Observable<any[]> = (q: QueryHash) =>
-  fromFetch("/api/eval/" + q)
+const evl: (arg: {q: QueryHash, fields: string[] }) => Observable<any[]> = ({q, fields}) =>
+  fromFetch(new Request("/api/eval/"+q, { method: "POST", body: JSON.stringify(fields), headers: { "content-type": "application/json" } }))
     .pipe(
       mergeMap(val => val.json().then(vl => vl as any[])),
       shareReplay(1)
