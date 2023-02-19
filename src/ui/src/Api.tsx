@@ -6,13 +6,13 @@ import { VisualizationSpec } from "react-vega";
 
 export type QueryHash = string;
 
-export type ViewHash = string;
+export type CubeHash = string;
 
-export type Hashed<T> = [ViewHash, T]
+export type Hashed<T> = [CubeHash, T]
 
-export type View = {
-  vQuery: QueryHash;
-  vTitle: string;
+export type Cube = {
+  cQuery: QueryHash;
+  cTitle: string;
 }
 
 export type Archetype =
@@ -28,19 +28,21 @@ export type Visualisation = {
   visDescription: string;
   visScore: number;
   visArchetype: Archetype;
+  visFieldNames: string[];
+  visQuery: QueryHash;
 }
 
-const views: Observable<Hashed<View>[]> =
-  fromFetch("/api/views")
+const cubes: Observable<Hashed<Cube>[]> =
+  fromFetch("/api/cubes")
     .pipe(
-      mergeMap(val => val.json().then(vl => vl as Hashed<View>[])),
+      mergeMap(val => val.json().then(vl => vl as Hashed<Cube>[])),
       shareReplay(1)
     )
 
-const view: (v: ViewHash) => Observable<View> = (v: string) =>
-  fromFetch("/api/views/" + v)
+const cube: (v: CubeHash) => Observable<Cube> = (v: string) =>
+  fromFetch("/api/cubes/" + v)
     .pipe(
-      mergeMap(val => val.json().then(vl => vl as View)),
+      mergeMap(val => val.json().then(vl => vl as Cube)),
       shareReplay(1)
     )
 
@@ -51,11 +53,11 @@ const vis: (q: QueryHash) => Observable<Visualisation[]> = (q: QueryHash) =>
       shareReplay(1)
     )
 
-const evl: (q: QueryHash) => Observable<any[]> = (q: QueryHash) =>
-  fromFetch("/api/eval/" + q)
+const evl: (arg: {q: QueryHash, fields: string[] }) => Observable<any[]> = ({q, fields}) =>
+  fromFetch(new Request("/api/eval/"+q, { method: "POST", body: JSON.stringify(fields), headers: { "content-type": "application/json" } }))
     .pipe(
       mergeMap(val => val.json().then(vl => vl as any[])),
       shareReplay(1)
     )
 
-export default { views, view, vis, evl }
+export default { cubes, cube, vis, evl }

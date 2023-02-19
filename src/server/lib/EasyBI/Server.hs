@@ -13,10 +13,10 @@ import Data.Map                    qualified as Map
 import Data.Proxy                  (Proxy (..))
 import Data.String                 (IsString (..))
 import EasyBI.Server.API           (API)
-import EasyBI.Server.Eval          (DbConnectionPool, evalQuery)
+import EasyBI.Server.Cube          (Cube)
+import EasyBI.Server.Eval          (DbConnectionPool, evalQuery, restrictTo)
 import EasyBI.Server.State         (ServerState (..))
 import EasyBI.Server.State         qualified as State
-import EasyBI.Server.View          (View)
 import EasyBI.Server.Visualisation (Visualisation)
 import EasyBI.Server.Visualisation qualified as V
 import EasyBI.Sql.Catalog          (TypedQueryExpr (..))
@@ -40,25 +40,25 @@ data ServerConfig =
 easyBIServer :: DbConnectionPool -> ServerState -> Server API
 easyBIServer pool state =
   health
-    :<|> views state
-    :<|> view state
+    :<|> cubes state
+    :<|> cube state
     :<|> vis state
     :<|> eval pool state
   where
     health = pure ()
-    views ServerState{ssViews} = pure (Map.toList ssViews)
+    cubes ServerState{ssCubes} = pure (Map.toList ssCubes)
 
-vis :: (MonadError ServerError m) => ServerState -> NiceHash TypedQueryExpr -> m [Visualisation]
-vis state hsh = V.visualisations . teType <$> lkp state hsh
+vis :: (MonadError ServerError m) => ServerState -> NiceHash TypedQueryExpr -> m [Visualisation (NiceHash TypedQueryExpr)]
+vis state hsh = V.visualisations hsh . teType <$> lkp state hsh
 
-view :: (MonadError ServerError m) => ServerState -> NiceHash (View Hashed) -> m (View Hashed)
-view state = lookupFromMaybe (State.findView state)
+cube :: (MonadError ServerError m) => ServerState -> NiceHash (Cube Hashed) -> m (Cube Hashed)
+cube state = lookupFromMaybe (State.findCube state)
 
 lkp :: (MonadError ServerError m) => ServerState -> NiceHash TypedQueryExpr -> m TypedQueryExpr
 lkp state = lookupFromMaybe (State.findQuery state)
 
-eval :: (MonadIO m, MonadError ServerError m) => DbConnectionPool -> ServerState -> NiceHash TypedQueryExpr -> m [WrappedObject]
-eval pool state hsh = lkp state hsh >>= liftIO . evalQuery pool . teQuery
+eval :: (MonadFail m, MonadIO m, MonadError ServerError m) => DbConnectionPool -> ServerState -> NiceHash TypedQueryExpr -> [String] -> m [WrappedObject]
+eval pool state hsh fieldNames = lkp state hsh >>= restrictTo fieldNames . teQuery >>= liftIO . evalQuery pool
 
 lookupFromMaybe :: (MonadError ServerError m, Show k) => (k -> Maybe v) -> k -> m v
 lookupFromMaybe f k = case f k of

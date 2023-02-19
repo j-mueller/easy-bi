@@ -8,14 +8,14 @@ import { HiViewGrid } from "react-icons/hi";
 import { AiOutlineDotChart, AiOutlineHeatMap, AiOutlineLineChart } from "react-icons/ai";
 import { TfiBarChart } from "react-icons/tfi";
 
-const ViewTitle: React.FC<{ viewId: string }> = ({ viewId }) => {
-  const [viewTitle, setViewTitle] = useState<string>(viewId);
+const CubeTitle: React.FC<{ cubeId: string }> = ({ cubeId }) => {
+  const [cubeTitle, setCubeTitle] = useState<string>(cubeId);
   useEffect(() => {
-    const sub = Api.view(viewId).subscribe(view => setViewTitle(view.vTitle));
+    const sub = Api.cube(cubeId).subscribe(cube => setCubeTitle(cube.cTitle));
     return () => sub.unsubscribe();
-  }, [viewId])
+  }, [cubeId])
 
-  return <span>{viewTitle}</span>
+  return <span>{cubeTitle}</span>
 
 }
 
@@ -37,25 +37,25 @@ const ArchetypeC: React.FC<{archetype: Archetype}> = ({archetype}) => {
   }
 }
 
-const ViewPage: React.FC<{ viewId: string }> = ({ viewId }) => {
+const CubePage: React.FC<{ cubeId: string }> = ({ cubeId }) => {
   const [vis, setVis] = useState<Visualisation[]>([]);
   const [visSubj] = useState<Subject<Visualisation>>(new Subject<Visualisation>());
   const [visComp, setVisComp] = useState<JSX.Element>(<div className="flex flex-grow">No selection</div>);
 
   useEffect(() => {
-    const viewDetails = Api.view(viewId);
-    const sub = viewDetails.pipe(mergeMap(view => Api.vis(view.vQuery)), tap(x => { ((vis.length == 0) && (x.length > 0)) ? visSubj.next(x[0]) : {} })).subscribe(setVis);
-    const queryResult = viewDetails.pipe(mergeMap(v => Api.evl(v.vQuery)));
+    const viewDetails = Api.cube(cubeId);
+    const sub = viewDetails.pipe(mergeMap(cube => Api.vis(cube.cQuery)), tap(x => { ((vis.length == 0) && (x.length > 0)) ? visSubj.next(x[0]) : {} })).subscribe(setVis);
+    const queryResult = visSubj.pipe(mergeMap(v => Api.evl({q: v.visQuery, fields: v.visFieldNames})));
 
     const sub2 =
       visSubj
         .pipe(combineLatestWith(queryResult))
-        .subscribe(([view, dt]) => setVisComp(<VegaLite className="flex-grow flex border border-gray-200" spec={view.visDefinition} actions={false} data={{ table: dt }} />));
+        .subscribe(([view, dt]) => setVisComp(<VegaLite className="flex-grow flex border border-gray-200" spec={view.visDefinition} actions={true} data={{ table: dt }} />));
 
     const sub3 = visSubj.subscribe(console.log);
 
     return () => { sub.unsubscribe(); sub2.unsubscribe(); sub3.unsubscribe(); }
-  }, [viewId]);
+  }, [cubeId]);
 
   function mkVisRow(vis: Visualisation): ReactNode {
     return <li
@@ -66,7 +66,7 @@ const ViewPage: React.FC<{ viewId: string }> = ({ viewId }) => {
     </li>;
   }
 
-  return <Page navs={[]} title={<ViewTitle viewId={viewId} />}>
+  return <Page navs={[]} title={<CubeTitle cubeId={cubeId} />}>
     <div className="flex flex-col flex-1">
       <ul className="flex flex-row h-32">{vis.map(mkVisRow)}</ul>
       <div className="flex-grow flex m-12">
@@ -76,11 +76,11 @@ const ViewPage: React.FC<{ viewId: string }> = ({ viewId }) => {
   </Page>
 }
 
-const ViewComponent: React.FC = () => {
+const CubeComponent: React.FC = () => {
   const params = useParams();
-  const viewId = params["viewid"] || "";
-  if (viewId === "") { console.warn("ViewPage: View ID not found in URL params") };
-  return <ViewPage viewId={viewId} />
+  const cubeId = params["cubeid"] || "";
+  if (cubeId === "") { console.warn("CubePage: Cube ID not found in URL params") };
+  return <CubePage cubeId={cubeId} />
 }
 
-export default ViewComponent;
+export default CubeComponent;

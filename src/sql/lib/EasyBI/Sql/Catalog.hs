@@ -48,9 +48,8 @@ data Catalog =
     -- | Database tables that we know about.
     _tables  :: Map SqlVar (TyScheme TyVar (Tp TyVar))
 
-    -- | Views that we can show to the user
-    -- They are predefined SQL queries that can be used
-    -- as the basis for views in the UI.
+    -- | Views that can be used
+    -- as the basis for cubes in the UI.
     -- They don't correspond to actual database views.
     , _views :: Map [Name] TypedQueryExpr
     }
