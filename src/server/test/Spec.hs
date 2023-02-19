@@ -32,7 +32,7 @@ tests = testGroup "server"
 
 checkVisualisations :: (String -> IO ()) -> Assertion
 checkVisualisations step = do
-  let vis  = visualisations (TyScheme [] $ TpRow $ mkRow 0 [(n "revenue", number), (n "country", text), (n "year", int)])
+  let vis  = visualisations () (TyScheme [] $ TpRow $ mkRow 0 [(n "revenue", number), (n "country", text), (n "year", int)])
       good = not (null vis)
   unless good (traverse_ (step . show) vis)
   assertBool "there should be some visualisations" good

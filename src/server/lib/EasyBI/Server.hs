@@ -48,7 +48,7 @@ easyBIServer pool state =
     health = pure ()
     cubes ServerState{ssCubes} = pure (Map.toList ssCubes)
 
-vis :: (MonadError ServerError m) => ServerState -> NiceHash TypedQueryExpr -> m [Visualisation]
+vis :: (MonadError ServerError m) => ServerState -> NiceHash TypedQueryExpr -> m [Visualisation (NiceHash TypedQueryExpr)]
 vis state hsh = V.visualisations hsh . teType <$> lkp state hsh
 
 cube :: (MonadError ServerError m) => ServerState -> NiceHash (Cube Hashed) -> m (Cube Hashed)

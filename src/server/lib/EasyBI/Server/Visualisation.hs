@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds          #-}
 {-# LANGUAGE DeriveAnyClass     #-}
 {-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE FlexibleInstances  #-}
 {-# LANGUAGE LambdaCase         #-}
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE TypeFamilies       #-}
@@ -42,7 +43,7 @@ import Language.SQL.SimpleSQL.Syntax qualified as Syntax
 
 {-| Visualisation to be shown on the client
 -}
-data Visualisation =
+data Visualisation a =
   Visualisation
     { visDefinition  :: WrappedObject
     -- ^ Specification of the graph in HVega
@@ -55,15 +56,15 @@ data Visualisation =
     , visFieldNames  :: [String]
     -- ^ The fields used by this visualisation
     , visEncoding    :: Encoding Field
-    , visQuery       :: NiceHash TypedQueryExpr
+    , visQuery       :: a
     }
     deriving stock (Generic, Show)
     deriving anyclass (ToJSON, FromJSON, Serialise)
 
-instance HasNiceHash Visualisation where
-  type Name Visualisation = "vis"
+instance HasNiceHash (Visualisation (NiceHash TypedQueryExpr)) where
+  type Name (Visualisation (NiceHash TypedQueryExpr)) = "vis"
 
-visualisations :: NiceHash TypedQueryExpr -> TyScheme TyVar (Tp TyVar) -> [Visualisation]
+visualisations :: a -> TyScheme TyVar (Tp TyVar) -> [Visualisation a]
 visualisations hsh =
   let addScore x = traverse score (x, x) in
   maybe []
@@ -91,7 +92,7 @@ fields mp = emptySelections & wildCards .~ wcs where
   getMeasure _ = Nothing
   wcs = mapMaybe (fmap (uncurry Field . first getName) . traverse getMeasure) (Map.toList mp)
 
-enc :: NiceHash TypedQueryExpr -> Encoding Field -> Score -> Maybe Visualisation
+enc :: a -> Encoding Field -> Score -> Maybe (Visualisation a)
 enc hsh e score_ =
   let setData = KM.insert "data" (object ["name" .= s "table"])
                 . KM.insert "width" (toJSON (s "container"))

@@ -22,7 +22,6 @@ module EasyBI.Vis.Types
   ( Encoding (..)
   , Mark (..)
   , Measurement (..)
-  , OutOf (..)
   , PositionChannel (..)
   , Scale (..)
   , ScaleTp (..)
@@ -116,12 +115,6 @@ data PositionChannel f
 
 fieldPositionChannel :: Relation f => f -> PositionChannel f
 fieldPositionChannel f = PositionChannel f (fieldLabel f) emptyScale
-
-{-| How many out of a maximum number
--}
-data OutOf = OutOf Int Int
-  deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
 
 {-| Visualisation archetype. This is only used for UX purposes
 (showing a symbol to the user)

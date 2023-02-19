@@ -10,10 +10,9 @@ import Control.Lens     ((&), (.~))
 import Data.Text        qualified as Text
 import EasyBI.Vis.Rules (makeChart)
 import EasyBI.Vis.Types (Archetype (..), Mark (..), Measurement (..),
-                         OutOf (..), Relation (..), archetype, emptyEncoding,
+                         Relation (..), archetype, emptyEncoding,
                          emptySelections, fieldPositionChannel, markChannel,
-                         positionX, positionY, runRule, wildCards,
-                         wildCardsUsed)
+                         positionX, positionY, runRule, wildCards)
 import Test.Tasty       (TestTree, defaultMain, testGroup)
 import Test.Tasty.HUnit (Assertion, assertEqual, testCase)
 
@@ -36,7 +35,6 @@ scatterplot = do
                   & positionX .~ Just (fieldPositionChannel Mileage)
                   & positionY .~ Just (fieldPositionChannel Price)
                   & markChannel .~ Just Point
-                  & wildCardsUsed .~ Just (2 `OutOf` 2)
                   & archetype .~ Just Scatterplot
   case encodings of
     (x:_) -> assertEqual "Scatterplot encoding" expected x
