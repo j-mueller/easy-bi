@@ -17,6 +17,18 @@ Command line interface for EasyBI
 
 SQL type checker (WIP). Mostly based on the technical report [_Generalizing Hindley-Milner Type Inference Algorithms_](https://www.cs.uu.nl/research/techreps/repo/CS-2002/2002-031.pdf) by B. Heeren, J. Hage and D. Swierstra with a simple row-type extensions inspired by [various](https://ahnfelt.medium.com/row-polymorphism-crash-course-587f1e7b7c47) [blogs](http://blog.vmchale.com/article/row-types).
 
+### `easy-bi-server`
+
+Server app for running queries and generating visualisations over a REST API.
+
+### `easy-bi-cli`
+
+CLI for running the server app. Reads a catalog (views and tables) from a SQL file.
+
+### `easy-bi-ui`
+
+Web UI that talks to the `easy-bi-server` API. Shows the available cubes and visualisations.
+
 ## Contributions
 
 Contributions, feature requests and bug reports are welcome!
