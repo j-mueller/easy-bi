@@ -1,20 +1,20 @@
 import React, { ReactNode, useEffect, useState } from "react";
-import Api, { Hashed, Cube } from "../Api";
+import Api, { WithHash, Cube } from "../Api";
 import { Link, Outlet, Route, Routes } from "react-router-dom";
 import Page from "./Page";
 import CubeComponent from "./Cube";
 
 const CubeList: React.FC = () => {
-    const [availableCubes, setAvailableCubes] = useState<Hashed<Cube>[]>([]);
+    const [availableCubes, setAvailableCubes] = useState<WithHash<Cube>[]>([]);
 
     useEffect(() => {
         const sub = Api.cubes.subscribe(x => setAvailableCubes(x));
         return () => sub.unsubscribe();
     })
 
-    function mkCubeRow(cube: Hashed<Cube>): ReactNode {
+    function mkCubeRow(cube: WithHash<Cube>): ReactNode {
         return <li className="hover:bg-gray-200" key={cube[0]}>
-                <Link to={"/views/" + cube[0]} className="block">
+                <Link to={"/cubes/" + cube[0]} className="block">
                     {cube[1].cTitle}
                 </Link>
             </li>;

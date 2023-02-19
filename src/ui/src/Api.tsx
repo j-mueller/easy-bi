@@ -8,7 +8,7 @@ export type QueryHash = string;
 
 export type CubeHash = string;
 
-export type Hashed<T> = [CubeHash, T]
+export type WithHash<T> = [CubeHash, T]
 
 export type Cube = {
   cQuery: QueryHash;
@@ -32,10 +32,10 @@ export type Visualisation = {
   visQuery: QueryHash;
 }
 
-const cubes: Observable<Hashed<Cube>[]> =
+const cubes: Observable<WithHash<Cube>[]> =
   fromFetch("/api/cubes")
     .pipe(
-      mergeMap(val => val.json().then(vl => vl as Hashed<Cube>[])),
+      mergeMap(val => val.json().then(vl => vl as WithHash<Cube>[])),
       shareReplay(1)
     )
 
