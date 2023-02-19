@@ -26,7 +26,8 @@ CREATE TABLE sales(
   "DEALSIZE" TEXT
 );
 
-CREATE VIEW sales_view AS
+-- Sales by country and product line over time
+CREATE VIEW "Sales" AS
   SELECT
     SUM(sales."QUANTITYORDERED" * sales."PRICEEACH") as totalSales,
     SUM(sales."PRICEEACH") as totalPriceEach,
