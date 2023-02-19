@@ -19,15 +19,15 @@ module EasyBI.Vis.Rules
   , scatterplot
   ) where
 
-import           Control.Applicative       (Alternative (..))
-import           Control.Monad             (guard)
-import           Control.Monad.Logic.Class ((>>-))
-import           EasyBI.Vis.Types          (Archetype (..), Encoding, Mark (..),
-                                            Measurement (..), Relation, Rule,
-                                            archetype, colorChannel,
-                                            fieldPositionChannel, markChannel,
-                                            measurement, positionX, positionY)
-import           EasyBI.Vis.Utils          (choose, setOrFail')
+import Control.Applicative       (Alternative (..))
+import Control.Monad             (guard)
+import Control.Monad.Logic.Class ((>>-))
+import EasyBI.Vis.Types          (Archetype (..), Encoding, Mark (..),
+                                  Measurement (..), Relation, Rule, archetype,
+                                  colorChannel, fieldPositionChannel,
+                                  markChannel, measurement, positionX,
+                                  positionY)
+import EasyBI.Vis.Utils          (choose, setOrFail')
 
 {-| Visualise data in a bar chart
 -}

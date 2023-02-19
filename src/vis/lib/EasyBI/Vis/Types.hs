@@ -45,6 +45,7 @@ module EasyBI.Vis.Types
   , Selections (..)
   , color
   , emptySelections
+  , selectedArchetype
   , selectedMark
   , wildCards
   , xAxis
@@ -181,16 +182,17 @@ emptyEncoding =
 -- | Data submitted by the user
 data Selections f =
   Selections
-    { _WildCards    :: [f]
-    , _XAxis        :: Maybe f
-    , _YAxis        :: Maybe f
-    , _Color        :: Maybe f
-    , _selectedMark :: Maybe Mark
+    { _WildCards         :: [f]
+    , _XAxis             :: Maybe f
+    , _YAxis             :: Maybe f
+    , _Color             :: Maybe f
+    , _selectedMark      :: Maybe Mark
+    , _selectedArchetype :: Maybe Archetype
     } deriving stock (Eq, Show, Generic)
       deriving anyclass (ToJSON, FromJSON)
 
 emptySelections :: Selections f
-emptySelections = Selections [] Nothing Nothing Nothing Nothing
+emptySelections = Selections [] Nothing Nothing Nothing Nothing Nothing
 
 makeLenses ''Encoding
 makeFields ''PositionChannel
@@ -212,15 +214,16 @@ selectedDimensions :: forall m f. (Relation f, MonadLogic m, Eq f, MonadState (E
 selectedDimensions s = do
   (wcs, _) <- chooseSubList 3 (s ^. wildCards)
   x' <- case s ^. xAxis of
-          Nothing -> pure []
-          Just a  -> setOrFail' positionX (fieldPositionChannel a) *> pure [a]
+    Nothing -> pure []
+    Just a  -> setOrFail' positionX (fieldPositionChannel a) *> pure [a]
   y' <- case s ^. yAxis of
-          Nothing -> pure []
-          Just a  -> setOrFail' positionY (fieldPositionChannel a) *> pure [a]
+    Nothing -> pure []
+    Just a  -> setOrFail' positionY (fieldPositionChannel a) *> pure [a]
   col <- case s ^. color of
-          Nothing -> pure []
-          Just c  -> setOrFail' colorChannel c *> pure [c]
+    Nothing -> pure []
+    Just c  -> setOrFail' colorChannel c *> pure [c]
   traverse_ (setOrFail' markChannel) (s ^. selectedMark)
+  traverse_ (setOrFail' archetype) (s ^. selectedArchetype)
   pure $ nub $ wcs ++ x' ++ y' ++ col
 
 {-
