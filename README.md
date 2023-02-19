@@ -9,10 +9,6 @@ For now this is just a collection of BI-related packages / .hs files that I have
 
 Implementation of [_Automating the design of graphical presentations of relational information_](https://dl.acm.org/doi/10.1145/22949.22950) by Jock Mackinlay (ACM Transactions on Graphics 5, 2 (1986) 110-141). Defines a set of rules for assigning dimensions to channels to create sensible visualisations of relational data.
 
-### `easy-bi-cli`
-
-Command line interface for EasyBI
-
 ### `easy-bi-sql`
 
 SQL type checker (WIP). Mostly based on the technical report [_Generalizing Hindley-Milner Type Inference Algorithms_](https://www.cs.uu.nl/research/techreps/repo/CS-2002/2002-031.pdf) by B. Heeren, J. Hage and D. Swierstra with a simple row-type extensions inspired by [various](https://ahnfelt.medium.com/row-polymorphism-crash-course-587f1e7b7c47) [blogs](http://blog.vmchale.com/article/row-types).
