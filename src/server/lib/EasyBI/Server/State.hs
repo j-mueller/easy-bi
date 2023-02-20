@@ -10,18 +10,16 @@ module EasyBI.Server.State
   , stateFromList
   ) where
 
-import           Data.List                     (intercalate)
-import           Data.Map.Strict               (Map)
-import qualified Data.Map.Strict               as Map
-import           EasyBI.Server.Cube            (Cube (..), hashCube, queryExpr)
-import           EasyBI.Server.Visualisation   (fields)
-import           EasyBI.Sql.Catalog            (Catalog (..),
-                                                TypedQueryExpr (..))
-import           EasyBI.Sql.Effects.Types      (RowType (..), Tp (..),
-                                                TyScheme (..))
-import           EasyBI.Util.NiceHash          (Hashed, NiceHash, Plain,
-                                                hNiceHash, hPlain, niceHash)
-import           Language.SQL.SimpleSQL.Syntax (Name (..))
+import Data.List                     (intercalate)
+import Data.Map.Strict               (Map)
+import Data.Map.Strict               qualified as Map
+import EasyBI.Server.Cube            (Cube (..), hashCube, queryExpr)
+import EasyBI.Server.Visualisation   (fields)
+import EasyBI.Sql.Catalog            (Catalog (..), TypedQueryExpr (..))
+import EasyBI.Sql.Effects.Types      (RowType (..), Tp (..), TyScheme (..))
+import EasyBI.Util.NiceHash          (Hashed, NiceHash, Plain, hNiceHash,
+                                      hPlain, niceHash)
+import Language.SQL.SimpleSQL.Syntax (Name (..))
 
 data ServerState =
   ServerState

@@ -9,39 +9,36 @@
 -}
 module EasyBI.Server.Visualisation
   ( Field (..)
-  , fields
   , Visualisation (..)
+  , fields
   , visualisations
   ) where
 
-import           Codec.Serialise               (Serialise (..))
-import           Control.Lens                  (over, view, (&), (.~))
-import           Data.Aeson                    (FromJSON (..), ToJSON (..),
-                                                object, (.=))
-import qualified Data.Aeson.KeyMap             as KM
-import           Data.Bifunctor                (Bifunctor (..))
-import           Data.Foldable                 (toList)
-import           Data.List                     (sortOn)
-import           Data.Map                      (Map)
-import qualified Data.Map                      as Map
-import           Data.Maybe                    (fromMaybe, mapMaybe)
-import           Data.Ord                      (Down (..))
-import qualified Data.Text                     as Text
-import           EasyBI.Sql.Catalog            (TypedQueryExpr)
-import           EasyBI.Sql.Effects.Types      (RowType (..), SqlType (..),
-                                                Tp (..), TyScheme (..), TyVar)
-import           EasyBI.Util.JSON              (WrappedObject (..),
-                                                _WrappedObject, fromValue)
-import           EasyBI.Util.NiceHash          (HasNiceHash (..), NiceHash)
-import qualified EasyBI.Vis.HVega              as HVega
-import           EasyBI.Vis.Rules              (makeChart)
-import           EasyBI.Vis.Types              (Archetype (Misc), Encoding,
-                                                Measurement (..), Relation (..),
-                                                Score (..), Selections,
-                                                archetype, emptySelections,
-                                                runRule, score, wildCards)
-import           GHC.Generics                  (Generic)
-import qualified Language.SQL.SimpleSQL.Syntax as Syntax
+import Codec.Serialise               (Serialise (..))
+import Control.Lens                  (over, view)
+import Data.Aeson                    (FromJSON (..), ToJSON (..), object, (.=))
+import Data.Aeson.KeyMap             qualified as KM
+import Data.Bifunctor                (Bifunctor (..))
+import Data.Foldable                 (toList)
+import Data.List                     (sortOn)
+import Data.Map                      (Map)
+import Data.Map                      qualified as Map
+import Data.Maybe                    (fromMaybe, mapMaybe)
+import Data.Ord                      (Down (..))
+import Data.Text                     qualified as Text
+import EasyBI.Sql.Catalog            (TypedQueryExpr)
+import EasyBI.Sql.Effects.Types      (SqlType (..), Tp (..), TyVar)
+import EasyBI.Util.JSON              (WrappedObject (..), _WrappedObject,
+                                      fromValue)
+import EasyBI.Util.NiceHash          (HasNiceHash (..), NiceHash)
+import EasyBI.Vis.HVega              qualified as HVega
+import EasyBI.Vis.Rules              (makeChart)
+import EasyBI.Vis.Types              (Archetype (Misc), Encoding,
+                                      Measurement (..), Relation (..),
+                                      Score (..), Selections, archetype,
+                                      runRule, score)
+import GHC.Generics                  (Generic)
+import Language.SQL.SimpleSQL.Syntax qualified as Syntax
 
 {-| Visualisation to be shown on the client
 -}
@@ -66,20 +63,14 @@ data Visualisation a =
 instance HasNiceHash (Visualisation (NiceHash TypedQueryExpr)) where
   type Name (Visualisation (NiceHash TypedQueryExpr)) = "vis"
 
-visualisations :: a -> TyScheme TyVar (Tp TyVar) -> [Visualisation a]
+visualisations :: a -> Selections Field -> [Visualisation a]
 visualisations hsh =
   let addScore x = traverse score (x, x) in
-  maybe []
-    (take 10
+  take 10
       . mapMaybe (uncurry (enc hsh))
       . sortOn (Down . snd)
       . mapMaybe addScore
-      . runRule 50 makeChart)
-    . selections
-
-selections :: TyScheme TyVar (Tp TyVar) -> Maybe (Selections Field)
-selections (TyScheme _ (TpRow (RowType _ mp))) = Just (emptySelections & wildCards .~ fields mp)
-selections _                                   = Nothing
+      . runRule 50 makeChart
 
 {-| The fields of a record
 -}

@@ -14,13 +14,13 @@ module EasyBI.Server.Cube
   , queryExpr
   ) where
 
-import           Codec.Serialise             (Serialise (..))
-import           Data.Aeson                  (FromJSON (..), ToJSON (..))
-import           EasyBI.Server.Visualisation (Field)
-import           EasyBI.Sql.Catalog          (TypedQueryExpr)
-import           EasyBI.Util.NiceHash        (HasNiceHash (..), Hashable (..),
-                                              Hashed, Plain, hHash)
-import           GHC.Generics                (Generic)
+import Codec.Serialise             (Serialise (..))
+import Data.Aeson                  (FromJSON (..), ToJSON (..))
+import EasyBI.Server.Visualisation (Field)
+import EasyBI.Sql.Catalog          (TypedQueryExpr)
+import EasyBI.Util.NiceHash        (HasNiceHash (..), Hashable (..), Hashed,
+                                    Plain, hHash)
+import GHC.Generics                (Generic)
 
 {-| A cube is a big SELECT statement with all dimensions
 and aggregations
