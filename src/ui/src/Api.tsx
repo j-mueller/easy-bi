@@ -10,9 +10,22 @@ export type CubeHash = string;
 
 export type WithHash<T> = [CubeHash, T]
 
+export type Measurement =
+  "Nominal"
+  | "Ordinal"
+  | "Quantitative"
+  | "TemporalAbs"
+  | "TemporalRel"
+
+export type Field = {
+  name: string;
+  fieldType: Measurement;
+}
+
 export type Cube = {
   cQuery: QueryHash;
   cTitle: string;
+  cFields: Field[];
 }
 
 export type Archetype =

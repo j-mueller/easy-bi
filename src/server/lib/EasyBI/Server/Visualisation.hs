@@ -9,37 +9,39 @@
 -}
 module EasyBI.Server.Visualisation
   ( Field (..)
+  , fields
   , Visualisation (..)
   , visualisations
   ) where
 
-import Codec.Serialise               (Serialise (..))
-import Control.Lens                  (over, view, (&), (.~))
-import Data.Aeson                    (FromJSON (..), ToJSON (..), object, (.=))
-import Data.Aeson.KeyMap             qualified as KM
-import Data.Bifunctor                (Bifunctor (..))
-import Data.Foldable                 (toList)
-import Data.List                     (sortOn)
-import Data.Map                      (Map)
-import Data.Map                      qualified as Map
-import Data.Maybe                    (fromMaybe, mapMaybe)
-import Data.Ord                      (Down (..))
-import Data.Text                     qualified as Text
-import EasyBI.Sql.Catalog            (TypedQueryExpr)
-import EasyBI.Sql.Effects.Types      (RowType (..), SqlType (..), Tp (..),
-                                      TyScheme (..), TyVar)
-import EasyBI.Util.JSON              (WrappedObject (..), _WrappedObject,
-                                      fromValue)
-import EasyBI.Util.NiceHash          (HasNiceHash (..), NiceHash)
-import EasyBI.Vis.HVega              qualified as HVega
-import EasyBI.Vis.Rules              (makeChart)
-import EasyBI.Vis.Types              (Archetype (Misc), Encoding,
-                                      Measurement (..), Relation (..),
-                                      Score (..), Selections, archetype,
-                                      emptySelections, runRule, score,
-                                      wildCards)
-import GHC.Generics                  (Generic)
-import Language.SQL.SimpleSQL.Syntax qualified as Syntax
+import           Codec.Serialise               (Serialise (..))
+import           Control.Lens                  (over, view, (&), (.~))
+import           Data.Aeson                    (FromJSON (..), ToJSON (..),
+                                                object, (.=))
+import qualified Data.Aeson.KeyMap             as KM
+import           Data.Bifunctor                (Bifunctor (..))
+import           Data.Foldable                 (toList)
+import           Data.List                     (sortOn)
+import           Data.Map                      (Map)
+import qualified Data.Map                      as Map
+import           Data.Maybe                    (fromMaybe, mapMaybe)
+import           Data.Ord                      (Down (..))
+import qualified Data.Text                     as Text
+import           EasyBI.Sql.Catalog            (TypedQueryExpr)
+import           EasyBI.Sql.Effects.Types      (RowType (..), SqlType (..),
+                                                Tp (..), TyScheme (..), TyVar)
+import           EasyBI.Util.JSON              (WrappedObject (..),
+                                                _WrappedObject, fromValue)
+import           EasyBI.Util.NiceHash          (HasNiceHash (..), NiceHash)
+import qualified EasyBI.Vis.HVega              as HVega
+import           EasyBI.Vis.Rules              (makeChart)
+import           EasyBI.Vis.Types              (Archetype (Misc), Encoding,
+                                                Measurement (..), Relation (..),
+                                                Score (..), Selections,
+                                                archetype, emptySelections,
+                                                runRule, score, wildCards)
+import           GHC.Generics                  (Generic)
+import qualified Language.SQL.SimpleSQL.Syntax as Syntax
 
 {-| Visualisation to be shown on the client
 -}
@@ -76,11 +78,13 @@ visualisations hsh =
     . selections
 
 selections :: TyScheme TyVar (Tp TyVar) -> Maybe (Selections Field)
-selections (TyScheme _ (TpRow (RowType _ mp))) = Just (fields mp)
+selections (TyScheme _ (TpRow (RowType _ mp))) = Just (emptySelections & wildCards .~ fields mp)
 selections _                                   = Nothing
 
-fields :: Map Syntax.Name (Tp TyVar) -> Selections Field
-fields mp = emptySelections & wildCards .~ wcs where
+{-| The fields of a record
+-}
+fields :: Map Syntax.Name (Tp TyVar) -> [Field]
+fields mp = mapMaybe (fmap (uncurry Field . first getName) . traverse getMeasure) (Map.toList mp) where
   getName (Syntax.Name _ n) = n
   getMeasure (TpSql t) = case t of
     STNumber   -> Just Quantitative
@@ -90,7 +94,6 @@ fields mp = emptySelections & wildCards .~ wcs where
     STDateTime -> Just TemporalAbs
     _          -> Nothing
   getMeasure _ = Nothing
-  wcs = mapMaybe (fmap (uncurry Field . first getName) . traverse getMeasure) (Map.toList mp)
 
 enc :: a -> Encoding Field -> Score -> Maybe (Visualisation a)
 enc hsh e score_ =
