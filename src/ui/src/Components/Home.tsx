@@ -28,7 +28,7 @@ const CubeList: React.FC<{}> = () => {
 
   }
 
-  return <Page title={<h1>Home</h1>} navs={[]}>
+  return <Page title={<h1>Datasets</h1>} navs={[]}>
     <div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 m-4">
       {cubes.map(mkCubeRow)}

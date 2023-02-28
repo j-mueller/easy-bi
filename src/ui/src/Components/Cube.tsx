@@ -1,10 +1,10 @@
 import React, { ReactNode, useEffect, useState } from "react";
 import Api, { Archetype, Cube, Field, Measurement, Selections, Visualisation } from "../Api";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import Page from "./Page";
 import { combineLatestWith, map, mergeMap, Observable, scan, startWith, Subject } from "rxjs";
 import { VegaLite } from "react-vega";
-import { HiViewGrid } from "react-icons/hi";
+import { HiViewGrid, HiChevronRight } from "react-icons/hi";
 import { AiOutlineDotChart, AiOutlineHeatMap, AiOutlineLineChart } from "react-icons/ai";
 import { TfiBarChart, TfiCalendar, TfiDashboard, TfiDownload, TfiText, TfiTime } from "react-icons/tfi";
 import { Lens } from 'monocle-ts';
@@ -112,10 +112,22 @@ const emptySelections: Selections<Field> = { _WildCards: [] }
 
 const _WildCardsL: Lens<Selections<Field>, Field[]> = Lens.fromProp<Selections<Field>>()('_WildCards');
 
+const VisCard: React.FC<{vis: Visualisation}> = ({vis}) => {
+
+  const [dt, setDt] = useState<any[]>([]);
+
+  useEffect(() => {
+    const sub = Api.evl({q: vis.visQuery, fields: vis.visFieldNames}).subscribe(setDt);
+
+    return () => sub.unsubscribe();
+  })
+
+  return <VegaLite style={{height: "500px"}} className="w-4/5 border border-slate-300 mb-8" spec={vis.visDefinition} actions={false} data={{ table: dt }} />
+}
+
 const CubePage: React.FC<{ cubeId: string }> = ({ cubeId }) => {
   const [availableVisualisations, setAvailableVisualisations] = useState<Visualisation[]>([]);
   const [selectedVisualisation] = useState<Subject<Visualisation>>(new Subject<Visualisation>());
-  const [visComp, setVisComp] = useState<JSX.Element>(<div className="flex flex-grow">No selection</div>);
   const [selChange] = useState<Subject<Change<Selections<Field>>>>(new Subject());
   const [selections] = useState<Observable<Selections<Field>>>(
     selChange.pipe(
@@ -123,10 +135,10 @@ const CubePage: React.FC<{ cubeId: string }> = ({ cubeId }) => {
       startWith(emptySelections)
     )
   );
+  const [cubeName, setCubeName] = useState<string>(cubeId);
   const [cube] = useState<Observable<Cube>>(Api.cube(cubeId));
 
   useEffect(() => {
-    // const sub1 = cube.subscribe(cube => selChange.next(_WildCardsL.set(cube.cFields)));
     const sub = 
       cube.pipe(
         map(cube => cube.cQuery),
@@ -136,26 +148,12 @@ const CubePage: React.FC<{ cubeId: string }> = ({ cubeId }) => {
         setAvailableVisualisations(x);
         if (x.length > 0) { selectedVisualisation.next(x[0]) }
       });
-    const queryResult = selectedVisualisation.pipe(mergeMap(v => Api.evl({q: v.visQuery, fields: v.visFieldNames})));
-
-    const sub2 =
-      selectedVisualisation
-        .pipe(combineLatestWith(queryResult))
-        .subscribe(([view, dt]) => setVisComp(<VegaLite className="flex-grow flex border border-gray-200" spec={view.visDefinition} actions={true} data={{ table: dt }} />));
-
     const sub3 = selectedVisualisation.subscribe(console.log);
 
-    return () => { sub.unsubscribe(); sub2.unsubscribe(); sub3.unsubscribe(); }
-  }, [cubeId]);
+    const sub4 = cube.subscribe(x => setCubeName(x.cTitle));
 
-  function mkVisRow(vis: Visualisation): ReactNode {
-    return <li
-      className="cursor-pointer w-32 m-2 bg-slate-300 hover:bg-eucalyptus-300 hover:border-eucalyptus-700 border-slate-700 border-2 h-32 flex place-items-center"
-      onClick={() => selectedVisualisation.next(vis)}
-    >
-      <ArchetypeC archetype={vis.visArchetype} cls="flex-grow h-16 w-16" />
-    </li>;
-  }
+    return () => { sub.unsubscribe(); sub3.unsubscribe(); sub4.unsubscribe(); }
+  }, [cubeId]);
 
   function dimSelection(name:string, p: (f: Field) => boolean): ReactNode {
     return <div className="flex flex-col mb-4 bg-slate-50 px-2">
@@ -164,18 +162,26 @@ const CubePage: React.FC<{ cubeId: string }> = ({ cubeId }) => {
           </div>
   }
 
-  return <Page navs={[]} title={<CubeTitle cubeId={cubeId} />}>
-    <div className="flex flex-row flex-1">
+  const breadcrumbs = <div className="flex flex-row gap-1 text-slate-400 align-middle items-center justify-start h-8">
+    <Link to="/"><span>Home</span></Link>
+    <HiChevronRight/>
+    <Link to="/cubes"><span>Cubes</span></Link>
+    <HiChevronRight/>
+    <Link to={`/cubes/${cubeId}`}><span className="text-slate-300">{cubeName}</span></Link>
+  </div>
+
+  return <Page navs={[]} title={<CubeTitle cubeId={cubeId} />} top={breadcrumbs}>
+    <div className="flex flex-row flex-0 h-full">
       <div className="flex flex-col min-w-1/5 w-1/5 bg-slate-50 border border-r-slate-200">
         {dimSelection("Dimensions", f => f.fieldType != "Quantitative")}
         {dimSelection("Measures", f => f.fieldType == "Quantitative")}
         <ChartTypeSelection/>
       </div>
-      <div className="flex flex-col w-full flex-0 m-4">
-        {/* <ul className="flex flex-row flex-0 h-32 items-center">{availableVisualisations.map(mkVisRow)}</ul> */}
-        <div className="flex h-1/2 w-full px-2 my-8">
+      <div style={{height: "98%"}} className="grid m-4 gap-2 flex-grow bottom-0 overflow-y-auto items-center">
+        {availableVisualisations.map(vis => <VisCard vis={vis}/>)}
+        {/* <div className="flex h-1/2 w-full px-2 my-8">
           {visComp}
-        </div>
+        </div> */}
       </div>
     </div>
   </Page>
