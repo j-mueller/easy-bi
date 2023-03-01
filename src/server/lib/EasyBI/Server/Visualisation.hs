@@ -19,6 +19,7 @@ import Control.Lens                  (over, view)
 import Data.Aeson                    (FromJSON (..), ToJSON (..), object, (.=))
 import Data.Aeson.KeyMap             qualified as KM
 import Data.Bifunctor                (Bifunctor (..))
+import Data.Containers.ListUtils     (nubOrd)
 import Data.Foldable                 (toList)
 import Data.List                     (sortOn)
 import Data.Map                      (Map)
@@ -36,7 +37,7 @@ import EasyBI.Vis.Rules              (makeChart)
 import EasyBI.Vis.Types              (Archetype (Misc), Encoding,
                                       Measurement (..), Relation (..),
                                       Score (..), Selections, archetype,
-                                      runRule, score)
+                                      initialSelections, runRule, score)
 import GHC.Generics                  (Generic)
 import Language.SQL.SimpleSQL.Syntax qualified as Syntax
 
@@ -63,14 +64,11 @@ data Visualisation a =
 instance HasNiceHash (Visualisation (NiceHash TypedQueryExpr)) where
   type Name (Visualisation (NiceHash TypedQueryExpr)) = "vis"
 
-visualisations :: a -> Selections Field -> [Visualisation a]
-visualisations hsh =
-  let addScore x = traverse score (x, x) in
-  take 10
-      . mapMaybe (uncurry (enc hsh))
-      . sortOn (Down . snd)
-      . mapMaybe addScore
-      . runRule 50 makeChart
+visualisations :: a -> Selections [] Field -> [Visualisation a]
+visualisations hsh selections =
+  let addScore x = traverse score (x, x)
+      mkSel = take 10 . mapMaybe (uncurry (enc hsh)) . sortOn (Down . snd) . mapMaybe addScore . nubOrd . runRule 50 makeChart
+  in mconcat (mkSel <$> initialSelections selections)
 
 {-| The fields of a record
 -}
@@ -103,7 +101,7 @@ enc hsh e score_ =
 {-| A field with a measurement
 -}
 data Field = Field{ name :: String, fieldType :: Measurement }
-  deriving stock (Eq, Show, Generic)
+  deriving stock (Eq, Ord, Show, Generic)
   deriving anyclass (ToJSON, FromJSON, Serialise)
 
 instance Relation Field where

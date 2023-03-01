@@ -25,6 +25,8 @@ CLI for running the server app. Reads a catalog (views and tables) from a SQL fi
 
 Web UI that talks to the `easy-bi-server` API. Shows the available cubes and visualisations.
 
+![](doc/screenshot.png)
+
 ## Contributions
 
 Contributions, feature requests and bug reports are welcome!

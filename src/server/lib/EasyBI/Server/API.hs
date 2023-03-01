@@ -18,6 +18,6 @@ type API =
     "health" :> Get '[JSON] ()
     :<|> "cubes" :> Get '[JSON] [WithHash (Cube Hashed)]
     :<|> "cubes" :> Capture "cube"  (NiceHash (Cube Hashed))  :> Get '[JSON] (Cube Hashed)
-    :<|> "vis"   :> Capture "query" (NiceHash TypedQueryExpr) :> ReqBody '[JSON] (Selections Field) :> Post '[JSON] [Visualisation (NiceHash TypedQueryExpr)]
+    :<|> "vis"   :> Capture "query" (NiceHash TypedQueryExpr) :> ReqBody '[JSON] (Selections [] Field) :> Post '[JSON] [Visualisation (NiceHash TypedQueryExpr)]
     :<|> "eval"  :> Capture "query" (NiceHash TypedQueryExpr) :> ReqBody '[JSON] [String] :> Post '[JSON] [WrappedObject]
   )

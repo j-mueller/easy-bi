@@ -49,11 +49,11 @@ export type Mark = "Bar" | "Point" | "Line" | "Rect"
 
 export type Selections<T> = {
   _WildCards: T[];
-  _XAxis?: T;
-  _YAxis?: T;
-  _Color?: T;
-  _selectedMark?: Mark;
-  _selectedArchetype?: Archetype;
+  _XAxis: T[];
+  _YAxis: T[];
+  _Color: T[];
+  _selectedMark: Mark[];
+  _selectedArchetype: Archetype[];
 }
 
 const cubes: Observable<WithHash<Cube>[]> =

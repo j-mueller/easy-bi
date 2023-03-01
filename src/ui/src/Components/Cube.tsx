@@ -89,28 +89,39 @@ const SelectionsComp: React.FC<{currentSelection: Observable<Selections<Field>>,
   return <ul className="flex flex-col">{allFields.map(f => <FieldRow field={f} currentSelection={currentSelection} selChange={selChange}/>)}</ul>
 }
 
-const ChartTypeRow: React.FC<{chartType: Archetype}> = ({chartType}) => {
-  const itemClass = `w-12 h-12 m-1 p-1 flex items-center align-middle ${backgroundAndBorder(false)}`
+const ChartTypeRow: React.FC<{chartType: Archetype, changes: Subject<Change<Selections<Field>>>, selections: Observable<Selections<Field>> }> = ({chartType, changes, selections}) => {
+  const [isActive, setIsActive] = useState<boolean>(false);
+  const itemClass = `w-12 h-12 m-1 p-1 flex items-center align-middle ${backgroundAndBorder(isActive)}`
 
-  return <div className={itemClass}>
+  useEffect(() => {
+    const sub = selections.subscribe(sel => setIsActive(sel._selectedArchetype.findIndex(f => f == chartType) >= 0));
+    return () => sub.unsubscribe();
+  }, [])
+
+  function toggle(): void {
+    changes.next(_ArchetypeL.modify((a: Archetype[]) => isActive ? a.filter(f => f != chartType) : a.concat([chartType])));
+  }
+
+  return <div onClick={toggle} className={itemClass}>
     <ArchetypeC archetype={chartType} cls="h-8 w-8" />
   </div>
 }
 
-const ChartTypeSelection: React.FC<{}> = () => {
+const ChartTypeSelection: React.FC<{ changes: Subject<Change<Selections<Field>>>, selections: Observable<Selections<Field>> }> = ({changes, selections}) => {
   const allTypes: Archetype[] = ["Heatmap", "HorizontalBarChart", "Linechart", "Scatterplot", "VerticalBarChart", "Misc"]
+
   return <div className="flex flex-col mb-4 bg-slate-50 px-2">
             <span className="my-3 text-l font-medium">Chart type</span>
             <div className="flex flex-row flex-wrap flex-1">
-              {allTypes.map(tp => <ChartTypeRow chartType={tp} />)}
+              {allTypes.map(tp => <ChartTypeRow chartType={tp} changes={changes} selections={selections} />)}
             </div>
-            {/* <SelectionsComp currentSelection={selections} fields={cube.pipe(map(c => c.cFields.filter(p)))} selChange={selChange} /> */}
           </div>
 }
 
-const emptySelections: Selections<Field> = { _WildCards: [] }
+const emptySelections: Selections<Field> = { _WildCards: [], _Color: [], _selectedArchetype: [], _selectedMark: [], _XAxis: [], _YAxis: [] }
 
 const _WildCardsL: Lens<Selections<Field>, Field[]> = Lens.fromProp<Selections<Field>>()('_WildCards');
+const _ArchetypeL: Lens<Selections<Field>, Archetype[]> = Lens.fromProp<Selections<Field>>()('_selectedArchetype')
 
 const VisCard: React.FC<{vis: Visualisation}> = ({vis}) => {
 
@@ -120,9 +131,9 @@ const VisCard: React.FC<{vis: Visualisation}> = ({vis}) => {
     const sub = Api.evl({q: vis.visQuery, fields: vis.visFieldNames}).subscribe(setDt);
 
     return () => sub.unsubscribe();
-  })
+  }, [vis])
 
-  return <VegaLite style={{height: "500px"}} className="w-4/5 border border-slate-300 mb-8" spec={vis.visDefinition} actions={false} data={{ table: dt }} />
+  return <VegaLite style={{height: "500px"}} className="w-full border border-slate-300 mb-8" spec={vis.visDefinition} actions={false} data={{ table: dt }} />
 }
 
 const CubePage: React.FC<{ cubeId: string }> = ({ cubeId }) => {
@@ -175,13 +186,10 @@ const CubePage: React.FC<{ cubeId: string }> = ({ cubeId }) => {
       <div className="flex flex-col min-w-1/5 w-1/5 bg-slate-50 border border-r-slate-200">
         {dimSelection("Dimensions", f => f.fieldType != "Quantitative")}
         {dimSelection("Measures", f => f.fieldType == "Quantitative")}
-        <ChartTypeSelection/>
+        <ChartTypeSelection changes={selChange} selections={selections} />
       </div>
-      <div style={{height: "98%"}} className="grid m-4 gap-2 flex-grow bottom-0 overflow-y-auto items-center">
+      <div style={{height: "98%"}} className="grid m-4 gap-2 flex-grow bottom-0 overflow-y-auto">
         {availableVisualisations.map(vis => <VisCard vis={vis}/>)}
-        {/* <div className="flex h-1/2 w-full px-2 my-8">
-          {visComp}
-        </div> */}
       </div>
     </div>
   </Page>
