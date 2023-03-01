@@ -28,7 +28,13 @@ const CubeList: React.FC = () => {
 const Cubes: React.FC<{}> = () => {
     return <Routes>
         <Route path="/" element={<Outlet/>}>
-            <Route path=":cubeid/*" element={<CubeComponent/>}/>
+            <Route
+                path=":cubeid/*"
+                element={<CubeComponent/>}
+                handle={{
+                    crumb: (data: string) => <span>{data}</span>
+                }}
+                />
             <Route index element={<CubeList/>} />
         </Route>
     </Routes>

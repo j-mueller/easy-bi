@@ -1,0 +1,11 @@
+[ ] Lattice of fields
+    - auto insert time lattice?
+        - day - week - month - quarter - year
+        - month - season
+        - hour-of-day - day-of-week - week-of-month - week-of-year
+[ ] Sort order
+
+https://learn.microsoft.com/en-us/dotnet/standard/data/sqlite/user-defined-functions
+
+* Annotations? (SQL parsers doesn't include comments)
+* User defined selections

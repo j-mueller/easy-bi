@@ -44,6 +44,7 @@ module EasyBI.Vis.Types
   , Selections (..)
   , color
   , emptySelections
+  , initialSelections
   , selectedArchetype
   , selectedMark
   , wildCards
@@ -89,13 +90,13 @@ data Measurement = Nominal | Ordinal | Quantitative | TemporalAbs | TemporalRel 
 {-| Scales available in HVega.
 -}
 data ScaleTp = SLinear | SLog | SPow | STime | SUtc | SQuantile | SOrdinal
-  deriving stock (Eq, Show, Generic)
+  deriving stock (Eq, Ord, Show, Generic)
   deriving anyclass (ToJSON, FromJSON, Serialise)
 
 data Scale =
   Scale
     { _scaleTp :: Maybe ScaleTp
-    } deriving stock (Eq, Show, Generic)
+    } deriving stock (Eq, Ord, Show, Generic)
       deriving anyclass (ToJSON, FromJSON, Serialise)
 
 emptyScale :: Scale
@@ -110,7 +111,7 @@ data PositionChannel f
       { _positionChannelField :: f
       , _positionChannelTitle :: Text
       , _positionChannelScale :: Scale
-      } deriving (Eq, Show, Functor, Foldable, Traversable, Generic)
+      } deriving (Eq, Ord, Show, Functor, Foldable, Traversable, Generic)
         deriving anyclass (ToJSON, FromJSON, Serialise)
 
 fieldPositionChannel :: Relation f => f -> PositionChannel f
@@ -126,7 +127,7 @@ data Archetype =
   | Scatterplot
   | Heatmap
   | Misc
-  deriving stock (Eq, Show, Generic)
+  deriving stock (Eq, Ord, Show, Generic)
   deriving anyclass (ToJSON, FromJSON, Serialise)
 
 -- | Specifies how a relation is displayed in graph
@@ -137,7 +138,7 @@ data Encoding f
         _colorChannel :: Maybe f,
         _markChannel  :: Maybe Mark,
         _archetype    :: Maybe Archetype
-      } deriving stock (Eq, Show, Functor, Foldable, Traversable, Generic)
+      } deriving stock (Eq, Ord, Show, Functor, Foldable, Traversable, Generic)
 
 instance (ToJSON (PositionChannel f), ToJSON f) => ToJSON (Encoding f)
 instance (FromJSON (PositionChannel f), FromJSON f) => FromJSON (Encoding f)
@@ -173,18 +174,48 @@ emptyEncoding =
     }
 
 -- | Data submitted by the user
-data Selections f =
+data Selections k f =
   Selections
     { _WildCards         :: [f]
-    , _XAxis             :: Maybe f
-    , _YAxis             :: Maybe f
-    , _Color             :: Maybe f
-    , _selectedMark      :: Maybe Mark
-    , _selectedArchetype :: Maybe Archetype
-    } deriving stock (Eq, Show, Generic)
-      deriving anyclass (ToJSON, FromJSON)
+    , _XAxis             :: k f
+    , _YAxis             :: k f
+    , _Color             :: k f
+    , _selectedMark      :: k Mark
+    , _selectedArchetype :: k Archetype
+    } deriving stock Generic
 
-emptySelections :: Selections f
+deriving instance Eq f => Eq (Selections [] f)
+deriving instance Eq f => Eq (Selections Maybe f)
+
+deriving instance (ToJSON f, ToJSON (k f), ToJSON (k Mark), ToJSON (k Archetype)) => ToJSON (Selections k f)
+deriving instance (FromJSON f, FromJSON (k f), FromJSON (k Mark), FromJSON (k Archetype)) => FromJSON (Selections k f)
+
+{-| Turn a 'Selections []' object, with possible choices for
+specific channels, into a 'Selections Maybe' object, in which
+each channel is either set to a specific value or not set at
+all
+-}
+initialSelections :: Selections [] f -> [Selections Maybe f]
+initialSelections sel = do
+  let maybeList :: [a] -> [Maybe a]
+      maybeList [] = [Nothing]
+      maybeList xs = Just <$> xs
+  xAxis <- maybeList (_XAxis sel)
+  yAxis <- maybeList (_YAxis sel)
+  color <- maybeList (_Color sel)
+  mk <- maybeList (_selectedMark sel)
+  archetype <- maybeList (_selectedArchetype sel)
+  pure
+    Selections
+      { _WildCards = _WildCards sel
+      , _XAxis = xAxis
+      , _YAxis = yAxis
+      , _Color = color
+      , _selectedMark = mk
+      , _selectedArchetype = archetype
+      }
+
+emptySelections :: Selections Maybe f
 emptySelections = Selections [] Nothing Nothing Nothing Nothing Nothing
 
 makeLenses ''Encoding
@@ -203,7 +234,7 @@ type Rule f = forall m. (MonadLogic m, MonadState (Encoding f) m) => [f] -> m [f
 
 {-| Initialise the state with selections from the user
 -}
-selectedDimensions :: forall m f. (Relation f, MonadLogic m, Eq f, MonadState (Encoding f) m) => Selections f -> m [f]
+selectedDimensions :: forall m f. (Relation f, MonadLogic m, Eq f, MonadState (Encoding f) m) => Selections Maybe f -> m [f]
 selectedDimensions s = do
   (wcs, _) <- chooseSubList 3 (s ^. wildCards)
   x' <- case s ^. xAxis of
@@ -221,7 +252,7 @@ selectedDimensions s = do
 
 {-
 -}
-runRule :: forall f. (Relation f, Eq f) => Int -> Rule f -> Selections f -> [Encoding f]
+runRule :: forall f. (Relation f, Eq f) => Int -> Rule f -> Selections Maybe f -> [Encoding f]
 runRule n rule s =
   let rule' = selectedDimensions s >>= rule >>= guard . null
   in LogicT.observeMany n (execStateT rule' emptyEncoding)

@@ -88,6 +88,7 @@ test-suite easy-bi-server-test
     tasty-hunit,
     easy-bi-server,
     easy-bi-sql,
+    easy-bi-vis,
     text,
     bytestring,
     directory,

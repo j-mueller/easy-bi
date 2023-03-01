@@ -20,7 +20,7 @@ const CubeList: React.FC<{}> = () => {
       <div className="min-w-0 flex-1">
         <Link to={"/cubes/" + c[0]}>
           <p className="text-sm font-medium text-gray-900">{c[1].cTitle}</p>
-          <p className="truncate text-sm text-gray-500">Sales cube</p>
+          <p className="truncate text-sm text-gray-500">{c[1].cFields.map(f => f.name).join(", ")}</p>
         </Link>
 
       </div>
@@ -28,7 +28,7 @@ const CubeList: React.FC<{}> = () => {
 
   }
 
-  return <Page title={<h1>Home</h1>} navs={[]}>
+  return <Page title={<h1>Datasets</h1>} navs={[]}>
     <div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 m-4">
       {cubes.map(mkCubeRow)}

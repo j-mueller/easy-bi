@@ -10,9 +10,22 @@ export type CubeHash = string;
 
 export type WithHash<T> = [CubeHash, T]
 
+export type Measurement =
+  "Nominal"
+  | "Ordinal"
+  | "Quantitative"
+  | "TemporalAbs"
+  | "TemporalRel"
+
+export type Field = {
+  name: string;
+  fieldType: Measurement;
+}
+
 export type Cube = {
   cQuery: QueryHash;
   cTitle: string;
+  cFields: Field[];
 }
 
 export type Archetype =
@@ -32,6 +45,17 @@ export type Visualisation = {
   visQuery: QueryHash;
 }
 
+export type Mark = "Bar" | "Point" | "Line" | "Rect"
+
+export type Selections<T> = {
+  _WildCards: T[];
+  _XAxis: T[];
+  _YAxis: T[];
+  _Color: T[];
+  _selectedMark: Mark[];
+  _selectedArchetype: Archetype[];
+}
+
 const cubes: Observable<WithHash<Cube>[]> =
   fromFetch("/api/cubes")
     .pipe(
@@ -46,8 +70,8 @@ const cube: (v: CubeHash) => Observable<Cube> = (v: string) =>
       shareReplay(1)
     )
 
-const vis: (q: QueryHash) => Observable<Visualisation[]> = (q: QueryHash) =>
-  fromFetch("/api/vis/" + q)
+const vis: (args: {q: QueryHash, selections: Selections<Field>}) => Observable<Visualisation[]> = ({q, selections}) =>
+  fromFetch(new Request("/api/vis/"+q, { method: "POST", body: JSON.stringify(selections), headers: { "content-type": "application/json" } }))
     .pipe(
       mergeMap(val => val.json().then(vl => vl as Visualisation[])),
       shareReplay(1)

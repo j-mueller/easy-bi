@@ -10,14 +10,16 @@
 module EasyBI.Server.Visualisation
   ( Field (..)
   , Visualisation (..)
+  , fields
   , visualisations
   ) where
 
 import Codec.Serialise               (Serialise (..))
-import Control.Lens                  (over, view, (&), (.~))
+import Control.Lens                  (over, view)
 import Data.Aeson                    (FromJSON (..), ToJSON (..), object, (.=))
 import Data.Aeson.KeyMap             qualified as KM
 import Data.Bifunctor                (Bifunctor (..))
+import Data.Containers.ListUtils     (nubOrd)
 import Data.Foldable                 (toList)
 import Data.List                     (sortOn)
 import Data.Map                      (Map)
@@ -26,8 +28,7 @@ import Data.Maybe                    (fromMaybe, mapMaybe)
 import Data.Ord                      (Down (..))
 import Data.Text                     qualified as Text
 import EasyBI.Sql.Catalog            (TypedQueryExpr)
-import EasyBI.Sql.Effects.Types      (RowType (..), SqlType (..), Tp (..),
-                                      TyScheme (..), TyVar)
+import EasyBI.Sql.Effects.Types      (SqlType (..), Tp (..), TyVar)
 import EasyBI.Util.JSON              (WrappedObject (..), _WrappedObject,
                                       fromValue)
 import EasyBI.Util.NiceHash          (HasNiceHash (..), NiceHash)
@@ -36,8 +37,7 @@ import EasyBI.Vis.Rules              (makeChart)
 import EasyBI.Vis.Types              (Archetype (Misc), Encoding,
                                       Measurement (..), Relation (..),
                                       Score (..), Selections, archetype,
-                                      emptySelections, runRule, score,
-                                      wildCards)
+                                      initialSelections, runRule, score)
 import GHC.Generics                  (Generic)
 import Language.SQL.SimpleSQL.Syntax qualified as Syntax
 
@@ -64,23 +64,16 @@ data Visualisation a =
 instance HasNiceHash (Visualisation (NiceHash TypedQueryExpr)) where
   type Name (Visualisation (NiceHash TypedQueryExpr)) = "vis"
 
-visualisations :: a -> TyScheme TyVar (Tp TyVar) -> [Visualisation a]
-visualisations hsh =
-  let addScore x = traverse score (x, x) in
-  maybe []
-    (take 10
-      . mapMaybe (uncurry (enc hsh))
-      . sortOn (Down . snd)
-      . mapMaybe addScore
-      . runRule 50 makeChart)
-    . selections
+visualisations :: a -> Selections [] Field -> [Visualisation a]
+visualisations hsh selections =
+  let addScore x = traverse score (x, x)
+      mkSel = take 10 . mapMaybe (uncurry (enc hsh)) . sortOn (Down . snd) . mapMaybe addScore . nubOrd . runRule 50 makeChart
+  in mconcat (mkSel <$> initialSelections selections)
 
-selections :: TyScheme TyVar (Tp TyVar) -> Maybe (Selections Field)
-selections (TyScheme _ (TpRow (RowType _ mp))) = Just (fields mp)
-selections _                                   = Nothing
-
-fields :: Map Syntax.Name (Tp TyVar) -> Selections Field
-fields mp = emptySelections & wildCards .~ wcs where
+{-| The fields of a record
+-}
+fields :: Map Syntax.Name (Tp TyVar) -> [Field]
+fields mp = mapMaybe (fmap (uncurry Field . first getName) . traverse getMeasure) (Map.toList mp) where
   getName (Syntax.Name _ n) = n
   getMeasure (TpSql t) = case t of
     STNumber   -> Just Quantitative
@@ -90,7 +83,6 @@ fields mp = emptySelections & wildCards .~ wcs where
     STDateTime -> Just TemporalAbs
     _          -> Nothing
   getMeasure _ = Nothing
-  wcs = mapMaybe (fmap (uncurry Field . first getName) . traverse getMeasure) (Map.toList mp)
 
 enc :: a -> Encoding Field -> Score -> Maybe (Visualisation a)
 enc hsh e score_ =
@@ -109,7 +101,7 @@ enc hsh e score_ =
 {-| A field with a measurement
 -}
 data Field = Field{ name :: String, fieldType :: Measurement }
-  deriving stock (Eq, Show, Generic)
+  deriving stock (Eq, Ord, Show, Generic)
   deriving anyclass (ToJSON, FromJSON, Serialise)
 
 instance Relation Field where
