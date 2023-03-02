@@ -31,6 +31,7 @@ CREATE VIEW "Sales" AS
   SELECT
     SUM(sales."QUANTITYORDERED" * sales."PRICEEACH") as totalSales,
     SUM(sales."PRICEEACH") as totalPriceEach,
+    COUNT(*) as count,
     sales."COUNTRY" as country,
     sales."STATUS" as status,
     sales."QTR_ID" as qtr_id,
