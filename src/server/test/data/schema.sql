@@ -39,7 +39,9 @@ CREATE VIEW "Sales" AS
     sales."YEAR_ID" as year_id,
     sales."PRODUCTLINE" as productline,
     sales."TERRITORY" as territory,
-    sales."PRODUCTCODE" as productcode
+    sales."PRODUCTCODE" as productcode,
+    sales."CUSTOMERNAME" as customername,
+    sales."DEALSIZE" as dealsize
   FROM sales
   GROUP BY
     country,
@@ -49,4 +51,6 @@ CREATE VIEW "Sales" AS
     year_id,
     productline,
     territory,
-    productcode
+    productcode,
+    customername,
+    dealsize
