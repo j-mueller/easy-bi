@@ -68,11 +68,12 @@ newSqliteConnectionPool fp =
               -- Sqlite.execute_ conn "PRAGMA mode=json"
               -- pure conn
       cfg =
-        Pool.defaultPoolConfig
-          open
-          Sqlite.close
-          60 -- 1 minute TTL
-          1
+        Pool.setNumStripes (Just 1)
+        $ Pool.defaultPoolConfig
+            open
+            Sqlite.close
+            60 -- 1 minute TTL
+            1
   in Pool.newPool cfg
 
 cleanup :: DbConnectionPool -> IO ()
