@@ -41,7 +41,7 @@ library
     EasyBI.Sql.Utils
 
   build-depends:
-    base >=4.16.4 && <4.17
+    base >=4.16.4 && <5
     , recursion-schemes
     , simple-sql-parser >= 0.6.1
     , mtl
@@ -64,7 +64,7 @@ test-suite easy-bi-sql-test
     Spec.Predicate
     Spec.Unification
   build-depends:
-    base >=4.16.4 && <4.17,
+    base >=4.16.4 && <5,
     simple-sql-parser >= 0.6.1,
     tasty,
     tasty-hunit,

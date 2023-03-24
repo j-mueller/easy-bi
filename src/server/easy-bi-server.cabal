@@ -47,7 +47,7 @@ library
     easy-bi-sql,
     easy-bi-vis
   build-depends:
-    base >=4.16.4 && <4.17,
+    base >=4.16.4 && <5,
     mtl,
     katip,
     prettyprinter,
@@ -69,7 +69,7 @@ library
     warp,
     lens,
     aeson-pretty,
-    resource-pool >= 0.3.1.0,
+    resource-pool >= 0.4.0.0 && < 0.5,
     sqlite-simple >= 0.4.18.2
 
 test-suite easy-bi-server-test
@@ -82,7 +82,7 @@ test-suite easy-bi-server-test
     EasyBI.Test.Utils
     Paths_easy_bi_server
   build-depends:
-    base >=4.16.4 && <4.17,
+    base >=4.16.4 && <5,
     simple-sql-parser >= 0.6.1,
     tasty,
     tasty-hunit,

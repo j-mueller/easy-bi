@@ -16,20 +16,26 @@ module EasyBI.Server.Eval
   , asJSONRowsPostgres
   , asJSONRowsSqlite
     -- * Restricting queries
+  , applyFieldModifiers
   , restrictTo
   ) where
 
 import Control.Exception              (bracket)
-import Data.Pool                      (Pool, PoolConfig (..))
+import Control.Monad                  ((>=>))
+import Data.Maybe                     (mapMaybe)
+import Data.Pool                      (Pool)
 import Data.Pool                      qualified as Pool
 import Data.Set                       qualified as Set
 import Data.String                    (IsString (..))
 import Database.SQLite.Simple         qualified as Sqlite
+import EasyBI.Server.Visualisation    (Field (..), SortOrder (..))
 import EasyBI.Util.JSON               (WrappedObject (..))
 import Language.SQL.SimpleSQL.Dialect qualified as Dialect
 import Language.SQL.SimpleSQL.Pretty  qualified as Pretty
-import Language.SQL.SimpleSQL.Syntax  (Alias (..), GroupingExpr (..), Name (..),
-                                       QueryExpr (..), ScalarExpr (..),
+import Language.SQL.SimpleSQL.Syntax  (Alias (..), Direction (..),
+                                       GroupingExpr (..), Name (..),
+                                       NullsOrder (..), QueryExpr (..),
+                                       ScalarExpr (..), SortSpec (..),
                                        TableRef (..), makeSelect)
 
 data DbBackend
@@ -57,16 +63,16 @@ connectToDb = \case
 -}
 newSqliteConnectionPool :: FilePath -> IO (Pool Sqlite.Connection)
 newSqliteConnectionPool fp =
-  let cfg =
-        PoolConfig
-          { createResource = do
-              conn <- Sqlite.open fp
+  let open = Sqlite.open fp
+              -- conn <-
               -- Sqlite.execute_ conn "PRAGMA mode=json"
-              pure conn
-          , freeResource = Sqlite.close
-          , poolCacheTTL = 60 -- 1 minute TTL
-          , poolMaxResources = 1
-          }
+              -- pure conn
+      cfg =
+        Pool.defaultPoolConfig
+          open
+          Sqlite.close
+          60 -- 1 minute TTL
+          1
   in Pool.newPool cfg
 
 cleanup :: DbConnectionPool -> IO ()
@@ -138,6 +144,26 @@ asJSONRowsPostgres e =
             , qeSelectList = [(App [rtj] [dot], Nothing)]
             }
       }
+
+applyFieldModifiers :: MonadFail m => [Field] -> QueryExpr -> m QueryExpr
+applyFieldModifiers fields =
+  restrictTo (name <$> fields)
+  >=> applySortOrder fields
+
+applySortOrder :: MonadFail m => [Field] -> QueryExpr -> m QueryExpr
+applySortOrder fields = \case
+  x@Select{qeOrderBy=oldOrderBy} -> do
+    let mapDir = \case
+          Ascending  -> Just Asc
+          Descending -> Just Desc
+          None       -> Nothing
+        mkSpec Field{name, sortOrder=(mapDir -> Just o)} =
+          Just (SortSpec (Iden [Name Nothing name]) o NullsOrderDefault)
+        mkSpec _ = Nothing
+        statements = mapMaybe mkSpec fields
+        newOrderBy = statements ++ oldOrderBy
+    pure x{qeOrderBy = newOrderBy}
+  _ -> fail "Unsupported query"
 
 {-| Restrict the SELECT and GROUP bits of the query to
 the fields in the given list

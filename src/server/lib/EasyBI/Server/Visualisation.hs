@@ -3,12 +3,14 @@
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleInstances  #-}
 {-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE NamedFieldPuns     #-}
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE TypeFamilies       #-}
 {-| Visualisations
 -}
 module EasyBI.Server.Visualisation
   ( Field (..)
+  , SortOrder (..)
   , Visualisation (..)
   , fields
   , visualisations
@@ -53,7 +55,7 @@ data Visualisation a =
     -- ^ Score
     , visArchetype   :: Archetype
     -- ^ Archetype of the visualisation
-    , visFieldNames  :: [String]
+    , visFields      :: [Field]
     -- ^ The fields used by this visualisation
     , visEncoding    :: Encoding Field
     , visQuery       :: a
@@ -73,7 +75,7 @@ visualisations hsh selections =
 {-| The fields of a record
 -}
 fields :: Map Syntax.Name (Tp TyVar) -> [Field]
-fields mp = mapMaybe (fmap (uncurry Field . first getName) . traverse getMeasure) (Map.toList mp) where
+fields mp = mapMaybe (fmap (uncurry mkField . first getName) . traverse getMeasure) (Map.toList mp) where
   getName (Syntax.Name _ n) = n
   getMeasure (TpSql t) = case t of
     STNumber   -> Just Quantitative
@@ -83,6 +85,7 @@ fields mp = mapMaybe (fmap (uncurry Field . first getName) . traverse getMeasure
     STDateTime -> Just TemporalAbs
     _          -> Nothing
   getMeasure _ = Nothing
+  mkField name fieldType = Field{name, fieldType, sortOrder = None}
 
 enc :: a -> Encoding Field -> Score -> Maybe (Visualisation a)
 enc hsh e score_ =
@@ -94,13 +97,22 @@ enc hsh e score_ =
       <*> pure "FIXME: enc.visDescription"
       <*> pure score_
       <*> pure (fromMaybe Misc (view archetype e))
-      <*> pure (name <$> toList e)
+      <*> pure (toList e)
       <*> pure e
       <*> pure hsh
 
+data SortOrder = Ascending | Descending | None
+  deriving stock (Eq, Ord, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON, Serialise)
+
 {-| A field with a measurement
 -}
-data Field = Field{ name :: String, fieldType :: Measurement }
+data Field =
+  Field
+    { name      :: String
+    , fieldType :: Measurement
+    , sortOrder :: SortOrder
+    }
   deriving stock (Eq, Ord, Show, Generic)
   deriving anyclass (ToJSON, FromJSON, Serialise)
 
