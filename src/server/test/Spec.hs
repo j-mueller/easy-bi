@@ -9,7 +9,7 @@ import Control.Monad               (unless)
 import Data.Foldable               (traverse_)
 import EasyBI.Server.Eval          (DbBackend (..), evalQuery,
                                     withDbConnectionPool)
-import EasyBI.Server.Visualisation (Field (..), visualisations)
+import EasyBI.Server.Visualisation (Field (..), SortOrder (..), visualisations)
 import EasyBI.Sql.Catalog          (Catalog (..), TypedQueryExpr (..))
 import EasyBI.Test.Utils           (parseQuery, sampleCatalog, withSampleDb,
                                     withTempDir)
@@ -30,8 +30,8 @@ tests = testGroup "server"
 
 checkVisualisations :: (String -> IO ()) -> Assertion
 checkVisualisations step = do
-  let category = Field "category" Nominal
-      price    = Field "price"    Quantitative
+  let category = Field "category" Nominal Ascending
+      price    = Field "price"    Quantitative Ascending
       sel =
         Selections
           { _WildCards = [category, price]
