@@ -14,7 +14,8 @@ import Data.Proxy                  (Proxy (..))
 import Data.String                 (IsString (..))
 import EasyBI.Server.API           (API)
 import EasyBI.Server.Cube          (Cube)
-import EasyBI.Server.Eval          (DbConnectionPool, evalQuery, restrictTo)
+import EasyBI.Server.Eval          (DbConnectionPool, applyFieldModifiers,
+                                    evalQuery)
 import EasyBI.Server.State         (ServerState (..))
 import EasyBI.Server.State         qualified as State
 import EasyBI.Server.Visualisation (Field, Visualisation)
@@ -58,8 +59,8 @@ cube state = lookupFromMaybe (State.findCube state)
 lkp :: (MonadError ServerError m) => ServerState -> NiceHash TypedQueryExpr -> m TypedQueryExpr
 lkp state = lookupFromMaybe (State.findQuery state)
 
-eval :: (MonadFail m, MonadIO m, MonadError ServerError m) => DbConnectionPool -> ServerState -> NiceHash TypedQueryExpr -> [String] -> m [WrappedObject]
-eval pool state hsh fieldNames = lkp state hsh >>= restrictTo fieldNames . teQuery >>= liftIO . evalQuery pool
+eval :: (MonadFail m, MonadIO m, MonadError ServerError m) => DbConnectionPool -> ServerState -> NiceHash TypedQueryExpr -> [Field] -> m [WrappedObject]
+eval pool state hsh fields = lkp state hsh >>= applyFieldModifiers fields . teQuery >>= liftIO . evalQuery pool
 
 lookupFromMaybe :: (MonadError ServerError m, Show k) => (k -> Maybe v) -> k -> m v
 lookupFromMaybe f k = case f k of

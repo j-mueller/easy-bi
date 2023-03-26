@@ -35,7 +35,7 @@ library
     EasyBI.Vis.Utils
 
   build-depends:
-    base >=4.16.4 && <4.17,
+    base >=4.16.4 && <5,
     lens,
     mtl,
     logict,
@@ -52,7 +52,7 @@ test-suite easy-bi-vis-test
   ghc-options: -threaded -rtsopts
   main-is: Spec.hs
   build-depends:
-    base >=4.16.4 && <4.17,
+    base >=4.16.4 && <5,
     text,
     lens,
     tasty,

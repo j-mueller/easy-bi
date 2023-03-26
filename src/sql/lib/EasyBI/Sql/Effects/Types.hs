@@ -123,6 +123,7 @@ data SqlType =
   | STBool
   | STDateTime -- ^ Timestamp date+time
   | STInterval
+  | STStar
   | STOtherSqlType TypeName
   deriving stock (Eq, Show, Generic)
   deriving anyclass (Serialise, ToJSON, FromJSON)
@@ -154,6 +155,7 @@ instance Pretty SqlType where
     STBool            -> "bool"
     STInterval        -> "interval"
     STDateTime        -> "datetime"
+    STStar            -> "STAR"
     STOtherSqlType tn -> "<" <> viaShow tn <> ">"
 
 {-| The set of free type variables of a type @t@ is denoted by @freevars t@ and simply

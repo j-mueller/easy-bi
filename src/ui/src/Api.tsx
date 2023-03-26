@@ -17,9 +17,15 @@ export type Measurement =
   | "TemporalAbs"
   | "TemporalRel"
 
+export type SortOrder =
+  "Ascending"
+  | "Descending"
+  | "None"
+
 export type Field = {
   name: string;
   fieldType: Measurement;
+  sortOrder: SortOrder;
 }
 
 export type Cube = {
@@ -41,7 +47,7 @@ export type Visualisation = {
   visDescription: string;
   visScore: number;
   visArchetype: Archetype;
-  visFieldNames: string[];
+  visFields: Field[];
   visQuery: QueryHash;
 }
 
@@ -77,7 +83,7 @@ const vis: (args: {q: QueryHash, selections: Selections<Field>}) => Observable<V
       shareReplay(1)
     )
 
-const evl: (arg: {q: QueryHash, fields: string[] }) => Observable<any[]> = ({q, fields}) =>
+const evl: (arg: {q: QueryHash, fields: Field[] }) => Observable<any[]> = ({q, fields}) =>
   fromFetch(new Request("/api/eval/"+q, { method: "POST", body: JSON.stringify(fields), headers: { "content-type": "application/json" } }))
     .pipe(
       mergeMap(val => val.json().then(vl => vl as any[])),

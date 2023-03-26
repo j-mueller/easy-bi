@@ -74,6 +74,7 @@ writePositionChannel pos ch =
       <> (ch ^.. field . to measurement . to mkMeasurement . to VL.PmType)
       <> (ch ^.. title . to VL.PTitle)
       <> (ch ^.. scale . scaleTp . _Just . to (VL.PScale . mkScale))
+      <> [VL.PSort []]
 
 writeColorChannel ::
   forall f m.

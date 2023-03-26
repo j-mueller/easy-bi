@@ -307,6 +307,7 @@ annotScalarExprF = \case
   NumLit{}                 -> pure (TpSql STNumber)
   StringLit{}              -> pure (TpSql STText)
   IntervalLit{}            -> pure (TpSql STInterval)
+  Star                     -> pure (TpSql STStar)
   TypedLit tn _            -> pure (TpSql $ STOtherSqlType tn)
   Iden names               -> identifier names -- bindVar (AnIdentifier names)
   PositionalArg i          -> bindVar (APosArg i)
@@ -322,6 +323,7 @@ annotScalarExprF = \case
     x >> pure tn
   In _ b (InList bs)       -> sequence (b:bs) >>= allEquals >> pure (TpSql STBool)
   SubQueryExpr _ qry       -> cataA annotQueryExprF qry
+
   k                        -> throwError $ UnsupportedScalarExpr (show $ void k)
 
 {-| Produce the type variables and assumptions for a query expression.
