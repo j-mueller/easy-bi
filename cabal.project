@@ -1,5 +1,7 @@
-index-state: 2023-03-24T00:00:00Z
-with-compiler: ghc-9.4.4
+index-state:
+  , hackage.haskell.org 2023-10-05T21:19:55Z
+
+with-compiler: ghc-9.4.7
 
 packages:
   src/cli

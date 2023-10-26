@@ -1,4 +1,4 @@
-{ compiler ? "ghc944"
+{ compiler ? "ghc947"
 , system ? builtins.currentSystem
 , haskellNix
 , nixpkgs
