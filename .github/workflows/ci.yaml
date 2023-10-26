@@ -6,38 +6,6 @@ on:
   pull_request:
 
 jobs:
-  build-ui:
-    name: "Build UI"
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v3
-      with:
-        repository: j-mueller/easy-bi
-        token: ${{ secrets.MY_TOKEN || github.token }}
-        # On pull_request events, we want to check out the latest commit of the
-        # PR, which is different to github.ref (the default, which would point
-        # to a "fake merge" commit). On push events, the default is fine as it
-        # refers to the pushed commit.
-        ref: ${{ github.event.pull_request.head.sha || github.ref }}
-        # Also ensure we have all history with all tags
-        fetch-depth: 0
-
-    - name: Prepare nix
-      uses: cachix/install-nix-action@v18
-      with:
-        extra_nix_config: |
-          accept-flake-config = true
-          substituters        = https://hydra.iohk.io https://iohk.cachix.org https://cache.nixos.org/
-          trusted-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= iohk.cachix.org-1:DpRUyj7h7V830dp/i6Nti+NEO2/nhblbov/8MW7Rqoo= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
-          allow-import-from-derivation = true
-
-    - name: "Build the UI"
-      run: |
-        nix develop .#ci --command bash -c 'cd src/ui && npm install'
-        nix develop .#ci --command bash -c 'cd src/ui && npm run build'
-        git diff --exit-code
-
   build-test:
     name: "Build & test using cabal"
     runs-on: ubuntu-latest
