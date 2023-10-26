@@ -9,7 +9,7 @@ let
 
     buildInputs = [
         pkgs.git
-        pkgs.pkgconfig
+        pkgs.pkg-config
         pkgs.haskellPackages.hspec-discover
         pkgs.haskellPackages.cabal-plan
         pkgs.nodejs
