@@ -8,12 +8,6 @@ let
     libs = [];
 
     buildInputs = [
-        pkgs.git
-        pkgs.pkg-config
-        pkgs.haskellPackages.hspec-discover
-        pkgs.haskellPackages.cabal-plan
-        pkgs.nodejs
-        pkgs.nodePackages.npm
     ];
 
     
@@ -25,7 +19,7 @@ let
 
     # Haskell.nix managed tools (via hackage)
     buildTools = {
-        cabal = "3.10.2.0";
+        cabal = "3.10.1.0";
     };
 
     devTools = if withoutDevTools then { } else {
