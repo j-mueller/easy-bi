@@ -83,7 +83,13 @@ class Relation a where
 
 {-| Things that can be measured
 -}
-data Measurement = Nominal | Ordinal | Quantitative | TemporalAbs | TemporalRel -- | Geofeature
+data Measurement
+  = Nominal -- ^ Names (string)
+  | Ordinal -- ^ Things with an order (integer)
+  | Quantitative -- ^ Quantities (double)
+  | TemporalAbs -- ^ Absolute temporal values (UTCTime)
+  | TemporalRel -- ^ Relative temporal values (day-of-week, week-of-month, quarter-of-year, etc.)
+  -- | Geofeature
   deriving stock (Eq, Ord, Show, Generic)
   deriving anyclass (ToJSON, FromJSON, Serialise)
 
@@ -189,6 +195,8 @@ deriving instance Eq f => Eq (Selections Maybe f)
 
 deriving instance (ToJSON f, ToJSON (k f), ToJSON (k Mark), ToJSON (k Archetype)) => ToJSON (Selections k f)
 deriving instance (FromJSON f, FromJSON (k f), FromJSON (k Mark), FromJSON (k Archetype)) => FromJSON (Selections k f)
+
+deriving instance Show f => Show (Selections [] f)
 
 {-| Turn a 'Selections []' object, with possible choices for
 specific channels, into a 'Selections Maybe' object, in which

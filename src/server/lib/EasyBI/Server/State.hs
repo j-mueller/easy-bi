@@ -3,23 +3,17 @@
 -}
 module EasyBI.Server.State
   ( ServerState (..)
-  , cubes
   , emptyState
   , findCube
   , findQuery
   , stateFromList
   ) where
 
-import Data.List                     (intercalate)
-import Data.Map.Strict               (Map)
-import Data.Map.Strict               qualified as Map
-import EasyBI.Server.Cube            (Cube (..), hashCube, queryExpr)
-import EasyBI.Server.Visualisation   (fields)
-import EasyBI.Sql.Catalog            (Catalog (..), TypedQueryExpr (..))
-import EasyBI.Sql.Effects.Types      (RowType (..), Tp (..), TyScheme (..))
-import EasyBI.Util.NiceHash          (Hashed, NiceHash, Plain, hNiceHash,
-                                      hPlain, niceHash)
-import Language.SQL.SimpleSQL.Syntax (Name (..))
+import Data.Map.Strict      (Map)
+import Data.Map.Strict      qualified as Map
+import EasyBI.Server.Cube   (Cube (..), hashCube, queryExpr)
+import EasyBI.Sql.Catalog   (TypedQueryExpr (..))
+import EasyBI.Util.NiceHash (Hashed, NiceHash, Plain, hNiceHash, niceHash)
 
 data ServerState =
   ServerState
@@ -31,23 +25,6 @@ data ServerState =
 -}
 emptyState :: ServerState
 emptyState = ServerState mempty mempty
-
-cubes :: Catalog -> [Cube Plain]
-cubes =
-  let mkCube (names, typedQueryExpr) =
-        let cFields = case teType typedQueryExpr of
-              TyScheme _ (TpRow (RowType _ mp)) -> fields mp
-              _                                 -> []
-        in Cube
-            { cQuery = hPlain typedQueryExpr
-            , cTitle = mkTitle names
-            , cFields
-            }
-      mkTitle [] = "<no title>"
-      mkTitle xs =
-        let get (Name _ n) = n
-        in intercalate "." (get <$> xs)
-  in fmap mkCube . Map.toList . _views
 
 stateFromList :: [Cube Plain] -> ServerState
 stateFromList cubes_ =

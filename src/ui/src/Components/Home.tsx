@@ -19,8 +19,8 @@ const CubeList: React.FC<{}> = () => {
       </div>
       <div className="min-w-0 flex-1">
         <Link to={"/cubes/" + c[0]}>
-          <p className="text-sm font-medium text-gray-900">{c[1].cTitle}</p>
-          <p className="truncate text-sm text-gray-500">{c[1].cFields.map(f => f.name).join(", ")}</p>
+          <p className="text-sm font-medium text-gray-900">{c[1].name}</p>
+          <p className="truncate text-sm text-gray-500">{c[1].fields.map(f => f.name).join(", ")}</p>
         </Link>
 
       </div>

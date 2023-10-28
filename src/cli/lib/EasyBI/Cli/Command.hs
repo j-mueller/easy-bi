@@ -15,7 +15,8 @@ newtype TimestampColumn = TimestampColumn{ unTimestampColumn :: String }
 
 data SchemaConfig =
   SchemaConfig
-    { scSqlFile          :: FilePath
+    { scSqlFile          :: FilePath -- ^ A SQL file
+    , scDataSourceConfig :: FilePath  -- ^ A YAML / JSON file
     , scTimestampColumns :: [TimestampColumn]
     }
     deriving (Eq, Ord, Show)
@@ -24,6 +25,7 @@ parseSchemaConfig :: Parser SchemaConfig
 parseSchemaConfig =
   SchemaConfig
     <$> strOption (long "sql-schema" <> help "File with SQL CREATE statement(s)")
+    <*> strOption (long "data-source-config" <> help "JSON or YAML file with the data source config")
     <*> many (TimestampColumn <$> strOption (long "timestamp" <> help "Columns with timestamp values"))
 
 data Command =
@@ -35,7 +37,7 @@ commandParser :: Parser Command
 commandParser =
   subparser $
     mconcat
-      [ command "check-types" (info checkTypes (fullDesc <> progDesc "Read a file with SQL CREATE TABLE statements and check the schema"))
+      [ command "check-schema" (info checkTypes (fullDesc <> progDesc "Read a file with SQL CREATE TABLE statements and check the schema"))
       , command "start-server" (info startServer (fullDesc <> progDesc "Start the EasyBI server using the provided schema"))
       ]
 

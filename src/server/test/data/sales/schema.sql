@@ -34,23 +34,9 @@ CREATE VIEW "Sales" AS
     COUNT(*) as count,
     sales."COUNTRY" as country,
     sales."STATUS" as status,
-    sales."QTR_ID" as qtr_id,
-    sales."MONTH_ID" as month_id,
-    sales."YEAR_ID" as year_id,
     sales."PRODUCTLINE" as productline,
     sales."TERRITORY" as territory,
     sales."PRODUCTCODE" as productcode,
     sales."CUSTOMERNAME" as customername,
     sales."DEALSIZE" as dealsize
   FROM sales
-  GROUP BY
-    country,
-    status,
-    qtr_id,
-    month_id,
-    year_id,
-    productline,
-    territory,
-    productcode,
-    customername,
-    dealsize

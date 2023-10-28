@@ -46,6 +46,7 @@ library
     simple-sql-parser,
     containers,
     lens,
+    yaml
 
 executable easy-bi
   import: lang

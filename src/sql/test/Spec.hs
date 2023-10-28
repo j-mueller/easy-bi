@@ -14,9 +14,11 @@ import Data.Map.Strict                qualified as Map
 import Data.Maybe                     (listToMaybe)
 import Data.Proxy                     (Proxy (..))
 import EasyBI.Sql.Catalog             qualified as Catalog
-import EasyBI.Sql.Class               (SqlFragment (..), ansi2011, runInferType,
+import EasyBI.Sql.Class               (SqlFragment (..), postgres, runInferType,
                                        typeConstraints)
-import EasyBI.Sql.Effects.Types       (Tp (..), TyScheme (..), mkRow)
+import EasyBI.Sql.Construct           (boolean, datetime, dot, hostParameter,
+                                       int, number, row, text)
+import EasyBI.Sql.Effects.Types       (Tp (..), TyScheme (..))
 import EasyBI.Sql.Types               (AnnotateErr, InferError (..),
                                        SqlType (..), SqlVar (..), TyVar (..),
                                        UnificationError (..), defaultTypeEnv,
@@ -40,7 +42,7 @@ query :: Proxy QueryExpr
 query = Proxy
 
 testDialect :: Dialect
-testDialect = ansi2011
+testDialect = postgres
 
 tests :: TestTree
 tests = testGroup "type inference"
@@ -76,8 +78,13 @@ tests = testGroup "type inference"
         ]
 
       , testGroup "catalog"
-        [
-          testCaseSteps "simple catalog" (catalogSuccess (row 4 [("country", int)]) "CREATE TABLE sales (COUNTRY integer); CREATE VIEW v AS select sales.COUNTRY as country from sales")
+        [ testCaseSteps "simple catalog" (catalogSuccess (row 4 [("country", number)]) "CREATE TABLE sales (COUNTRY integer); CREATE VIEW v AS select sales.COUNTRY as country from sales")
+        , testCaseSteps "date" (catalogSuccess (row 5 [("date_day", text)]) "CREATE TABLE sales (DAT TIMESTAMP WITH TIME ZONE); CREATE VIEW v AS select strftime('%d', sales.DAT) as date_day")
+        , testCaseSteps "VARCHAR NOT NULL" (catalogSuccess (row 4 [("date_day", text)]) "CREATE TABLE sales (dat VARCHAR NOT NULL); CREATE VIEW v AS select sales.dat as date_day")
+        , testCaseSteps "TIMESTAMP WITH TIME ZONE NOT NULL" (catalogSuccess (row 4 [("date_day", datetime)]) "CREATE TABLE sales (dat TIMESTAMP WITH TIME ZONE NOT NULL); CREATE VIEW v AS select sales.dat as date_day")
+        , testCaseSteps "DOUBLE PRECISION" (catalogSuccess (row 4 [("date_day", number)]) "CREATE TABLE sales (dat DOUBLE PRECISION); CREATE VIEW v AS select sales.dat as date_day")
+        , testCaseSteps "INTEGER NOT NULL" (catalogSuccess (row 4 [("date_day", number)]) "CREATE TABLE sales (dat INTEGER NOT NULL); CREATE VIEW v AS select sales.dat as date_day")
+        , testCaseSteps "BOOLEAN NOT NULL" (catalogSuccess (row 4 [("date_day", boolean)]) "CREATE TABLE sales (dat BOOLEAN NOT NULL); CREATE VIEW v AS select sales.dat as date_day")
         ]
       ]
   ]
@@ -175,15 +182,7 @@ checkInference i step = case i of
       Right result -> fail ("Expected type inference to fail, but it succeeded with " <> show result)
 
 p :: String -> SqlVar
-p n = AHostParameter n Nothing
-
-dot :: TyVar -> String -> [(String, Tp TyVar)] -> (SqlVar, Tp TyVar)
-dot v a values = (AnIdentifier [Name Nothing a], row v values)
-
-row :: TyVar -> [(String, Tp TyVar)] -> Tp TyVar
-row v values =
-  let f (n, t) = (Name Nothing n, t)
-  in TpRow $ mkRow v (f <$> values)
+p = hostParameter
 
 data Infer =
   {-| Inference should succeed, assigning the expected types to the variables
@@ -199,15 +198,3 @@ inferSuccess p_ t a = checkInference . ShouldInferSuccess p_ t a
 
 inferFail :: (Show a, SqlFragment a) => Proxy a -> InferError -> String -> (String -> IO ()) -> Assertion
 inferFail p_ a = checkInference . ShouldInferFail p_ a
-
-number :: Tp v
-number = TpSql STNumber
-
-text :: Tp v
-text = TpSql STText
-
-boolean :: Tp v
-boolean = TpSql STBool
-
-int :: Tp v
-int = TpSql STInt

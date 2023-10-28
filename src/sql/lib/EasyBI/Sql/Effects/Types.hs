@@ -139,13 +139,16 @@ knownName :: String -> Maybe SqlType
 knownName (fmap toLower -> x) = Map.lookup x tps where
   tps = Map.fromList
     [ ("text", STText)
-    , ("integer", STInt)
+    , ("varchar", STText)
+    , ("integer", STNumber)
     , ("numeric", STNumber)
+    , ("double precision", STNumber)
+    , ("varchar not null", STText)
+    , ("integer not null", STNumber)
 
-    -- postgres
+    -- postgres & sqlite
     , ("boolean", STBool)
     ]
-
 
 instance Pretty SqlType where
   pretty = \case

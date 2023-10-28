@@ -7,7 +7,8 @@ module EasyBI.Test.Utils
   , failure
   , withLogFile
   , withTempDir
-    -- * Using the sample database
+    -- * Using the sample databases
+  , SampleDB (..)
   , parseQuery
   , sampleCatalog
   , withSampleDb
@@ -116,15 +117,35 @@ location = case reverse $ getCallStack callStack of
   (_, loc) : _ -> Just loc
   _            -> Nothing
 
+data SampleDB =
+  Sales -- ^ sales data (timestamp not properly formatted)
+  | Outages -- ^ electricity outages
+
+sampleDbSqliteFile :: SampleDB -> FilePath
+sampleDbSqliteFile = \case
+  Sales   -> "sales.db"
+  Outages -> "outages.sqlite"
+
+-- | Location of the test data
+sampleDbPath :: SampleDB -> FilePath
+sampleDbPath = \case
+  Sales   -> "sales"
+  Outages -> "outages"
+
+sampleDbSchema :: SampleDB -> FilePath
+sampleDbSchema = \case
+  Sales   -> "schema.sql"
+  Outages -> "schema.sql"
+
 {-| Use the sqlite sample database
 -}
-withSampleDb :: FilePath -> (FilePath -> IO ()) -> IO ()
-withSampleDb workDir action = do
-  let destination = workDir </> "sales.db"
-  readDataFile "sales.db" >>= BS.writeFile destination
+withSampleDb :: FilePath -> SampleDB -> (FilePath -> IO ()) -> IO ()
+withSampleDb workDir sampleDB action = do
+  let destination = workDir </> sampleDbSqliteFile sampleDB
+  readDataFile (sampleDbPath sampleDB </> sampleDbSqliteFile sampleDB) >>= BS.writeFile destination
   action destination
 
--- | Lookup a config file similar reading a file from disk.
+-- | Read a data file from the distribution
 readDataFile :: FilePath -> IO ByteString
 readDataFile source = do
   filename <- Pkg.getDataFileName ("test" </> "data" </> source)
@@ -136,10 +157,11 @@ parseQuery str =
     Left err -> failure (show err)
     Right x  -> pure x
 
-sampleCatalog :: IO Catalog
-sampleCatalog = do
-  file <- Text.unpack . Text.decodeUtf8 <$> readDataFile "schema.sql"
-  statements <- either (failure . show) pure (Parse.parseStatements Dialect.postgres "schema.sql" Nothing file)
+sampleCatalog :: SampleDB -> IO Catalog
+sampleCatalog db = do
+  let loc = sampleDbPath db </> sampleDbSchema db
+  file <- Text.unpack . Text.decodeUtf8 <$> readDataFile loc
+  statements <- either (failure . show) pure (Parse.parseStatements Dialect.postgres loc Nothing file)
   case Catalog.fromStatements mempty statements of
     Left err       -> failure (show err)
     Right (_, cat) -> pure cat

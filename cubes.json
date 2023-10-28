@@ -1,0 +1,72 @@
+[
+  [
+    "cube_cd809a855dc28251bacbf23b544495db6f18898f7c474697a9559690859d5bfe",
+    {
+      "query": "typed_query_c6c4146580714610205ec1b081e2be9aaaa4bf0d3715a116c13d89250ff87e05",
+      "name": "outages",
+      "display_name": "outages",
+      "fields": [
+        {
+          "name": "Date",
+          "description": "The start date of the outage",
+          "primary_field": {
+            "sql_field_name": "outage_day_of_month",
+            "display_name": "Day of month",
+            "field_options": {
+              "filter": {
+                "tag": "NoFilter"
+              },
+              "tag": "nominal"
+            },
+            "sort_order": "None"
+          },
+          "other_fields": [
+            {
+              "sql_field_name": "outage_month",
+              "display_name": "Month",
+              "field_options": {
+                "filter": {
+                  "tag": "NoFilter"
+                },
+                "tag": "nominal"
+              },
+              "sort_order": "None"
+            }
+          ]
+        },
+        {
+          "name": "Operator",
+          "description": "Operator that reported the outage",
+          "primary_field": {
+            "sql_field_name": "operator",
+            "display_name": "operator",
+            "field_options": {
+              "filter": {
+                "tag": "NoFilter"
+              },
+              "tag": "nominal"
+            },
+            "sort_order": "None"
+          },
+          "other_fields": []
+        },
+        {
+          "name": "Duration",
+          "description": "Duration of the outage",
+          "primary_field": {
+            "sql_field_name": "duration",
+            "display_name": "Duration",
+            "field_options": {
+              "filter": {
+                "tag": "NoFilter"
+              },
+              "tag": "ordinal"
+            },
+            "sort_order": "Ascending"
+          },
+          "other_fields": []
+        }
+      ]
+    }
+  ]
+]
