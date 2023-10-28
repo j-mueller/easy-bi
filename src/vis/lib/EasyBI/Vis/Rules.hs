@@ -33,11 +33,14 @@ import EasyBI.Vis.Utils          (choose, choose2, choose3, setOrFail')
 barChart :: forall f. (Eq f, Relation f) => Rule f
 barChart dims = horizontalBarChart dims <|> verticalBarChart dims
 
+barChartDims :: [Measurement]
+barChartDims = [Nominal, Ordinal, TemporalRel]
+
 horizontalBarChart :: forall f. (Eq f, Relation f) => Rule f
 horizontalBarChart dims = do
   setOrFail' @(Encoding f) archetype HorizontalBarChart
   setOrFail' @(Encoding f) markChannel Bar
-  let isX x = measurement x == Nominal || measurement x == Ordinal
+  let isX x = measurement x `elem` barChartDims
       isY y = measurement y == Quantitative
   choose2 (isX, isY) dims >>- \((nom, quanti), remaining) -> do
     setOrFail' @(Encoding f) positionX (fieldPositionChannel quanti)
@@ -48,7 +51,7 @@ verticalBarChart :: forall f. (Eq f, Relation f) => Rule f
 verticalBarChart dims = do
   setOrFail' @(Encoding f) archetype VerticalBarChart
   setOrFail' @(Encoding f) markChannel Bar
-  let isX x = measurement x == Nominal || measurement x == Ordinal
+  let isX x = measurement x `elem` barChartDims
       isY y = measurement y == Quantitative
   choose2 (isX, isY) dims >>- \((nom, quanti), remaining) -> do
     setOrFail' @(Encoding f) positionX (fieldPositionChannel nom)

@@ -35,40 +35,38 @@ module EasyBI.Sql.Types
   , solve
   ) where
 
-import Control.Lens                   (_1, _2, _3, assign, modifying, use)
-import Control.Monad                  (void, (>=>))
-import Control.Monad.Except           (ExceptT, MonadError (..), runExceptT)
-import Control.Monad.State.Strict     (execStateT)
-import Control.Monad.Trans.Class      (MonadTrans (..))
-import Control.Monad.Writer           (runWriterT)
-import Data.Bifunctor                 (Bifunctor (..))
-import Data.Either                    (partitionEithers)
-import Data.Foldable                  (traverse_)
-import Data.Functor.Foldable          (cataA)
-import Data.Map                       (Map)
-import Data.Map.Merge.Strict          qualified as Merge
-import Data.Map.Strict                qualified as Map
-import Data.Maybe                     (mapMaybe)
-import EasyBI.Sql.BuiltinTypes        (defaultTypeEnv)
-import EasyBI.Sql.Effects.Annotate    (MonadAnnotate (..))
-import EasyBI.Sql.Effects.Fresh       (MonadFresh (..), instantiate)
-import EasyBI.Sql.Effects.Types       (Assumption, Constraint,
-                                       InferenceLog (..), RowType (..),
-                                       SqlType (..), SqlVar (..), Substitution,
-                                       Tp (..), TyConstraint (..),
-                                       TyScheme (..), TyVar (..), TypeEnv (..),
-                                       apply, applyCons, comp, freeVars,
-                                       fromTypeName, insertRow, mkRow,
-                                       singleton)
-import EasyBI.Sql.Syntax              (InPredValueF (..), QueryExprF (..),
-                                       ScalarExprF (..))
-import Language.SQL.SimpleSQL.Dialect qualified as SQL.Dialect
-import Language.SQL.SimpleSQL.Pretty  qualified as SQL.Pretty
-import Language.SQL.SimpleSQL.Syntax  (ColumnDef (..), Name (..), ScalarExpr,
-                                       TableElement (..))
-import Language.SQL.SimpleSQL.Syntax  qualified as SQL.Syntax
-import Prettyprinter                  (Pretty (..), colon, hang, viaShow, vsep,
-                                       (<+>))
+import Control.Lens                  (_1, _2, _3, assign, modifying, use)
+import Control.Monad                 (void, (>=>))
+import Control.Monad.Except          (ExceptT, MonadError (..), runExceptT)
+import Control.Monad.State.Strict    (execStateT)
+import Control.Monad.Trans.Class     (MonadTrans (..))
+import Control.Monad.Writer          (runWriterT)
+import Data.Bifunctor                (Bifunctor (..))
+import Data.Either                   (partitionEithers)
+import Data.Foldable                 (traverse_)
+import Data.Functor.Foldable         (cataA)
+import Data.Map                      (Map)
+import Data.Map.Merge.Strict         qualified as Merge
+import Data.Map.Strict               qualified as Map
+import Data.Maybe                    (mapMaybe)
+import EasyBI.Sql.BuiltinTypes       (defaultTypeEnv)
+import EasyBI.Sql.Dialect            qualified as SQL.Dialect
+import EasyBI.Sql.Effects.Annotate   (MonadAnnotate (..))
+import EasyBI.Sql.Effects.Fresh      (MonadFresh (..), instantiate)
+import EasyBI.Sql.Effects.Types      (Assumption, Constraint, InferenceLog (..),
+                                      RowType (..), SqlType (..), SqlVar (..),
+                                      Substitution, Tp (..), TyConstraint (..),
+                                      TyScheme (..), TyVar (..), TypeEnv (..),
+                                      apply, applyCons, comp, freeVars,
+                                      fromTypeName, insertRow, mkRow, singleton)
+import EasyBI.Sql.Syntax             (InPredValueF (..), QueryExprF (..),
+                                      ScalarExprF (..))
+import Language.SQL.SimpleSQL.Pretty qualified as SQL.Pretty
+import Language.SQL.SimpleSQL.Syntax (ColumnDef (..), Name (..), ScalarExpr,
+                                      TableElement (..))
+import Language.SQL.SimpleSQL.Syntax qualified as SQL.Syntax
+import Prettyprinter                 (Pretty (..), colon, hang, viaShow, vsep,
+                                      (<+>))
 
 {-| Turn a list of 'TableElement's (from a CREATE TABLE statement)
 into a row type
@@ -357,4 +355,4 @@ mkRowVar entries = fmap TpRow . mkRow <$> freshVar <*> pure entries
 extractNameFromExpr :: (MonadError AnnotateErr m) => ScalarExpr -> m Name
 extractNameFromExpr = \case
   SQL.Syntax.Iden (reverse -> x :_) -> pure x
-  expr -> throwError $ ColumnWithoutAlias $ SQL.Pretty.prettyScalarExpr SQL.Dialect.postgres expr
+  expr -> throwError $ ColumnWithoutAlias $ SQL.Pretty.prettyScalarExpr SQL.Dialect.sqlite expr

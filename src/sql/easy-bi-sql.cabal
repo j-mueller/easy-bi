@@ -33,6 +33,7 @@ library
     EasyBI.Sql.Catalog
     EasyBI.Sql.Class
     EasyBI.Sql.Construct
+    EasyBI.Sql.Dialect
     EasyBI.Sql.Effects.Annotate
     EasyBI.Sql.Effects.Fresh
     EasyBI.Sql.Effects.Types

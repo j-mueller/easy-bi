@@ -122,6 +122,7 @@ data SqlType =
   | STText -- ^ Text, varchar, etc.
   | STBool
   | STDateTime -- ^ Timestamp date+time
+  | STTemporal -- ^ Time interval eg. day-of-month
   | STInterval
   | STStar
   | STOtherSqlType TypeName
@@ -158,6 +159,7 @@ instance Pretty SqlType where
     STBool            -> "bool"
     STInterval        -> "interval"
     STDateTime        -> "datetime"
+    STTemporal        -> "temporal"
     STStar            -> "STAR"
     STOtherSqlType tn -> "<" <> viaShow tn <> ">"
 

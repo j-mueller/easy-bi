@@ -9,6 +9,7 @@ module EasyBI.Sql.Construct
   , int
   , number
   , row
+  , temporal
   , text
   ) where
 
@@ -41,3 +42,6 @@ int = TpSql STInt
 
 datetime :: Tp v
 datetime = TpSql STDateTime
+
+temporal :: Tp v
+temporal = TpSql STTemporal

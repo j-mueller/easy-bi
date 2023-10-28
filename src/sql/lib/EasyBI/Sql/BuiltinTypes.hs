@@ -33,7 +33,9 @@ defaultTypeEnv =
         -- a polymorphic function here
         , let v = TpVar 0 in (AnOperator [Name Nothing "="], TyScheme [0] (TpArr v (TpArr v (TpSql STBool))))
 
-        , binOp "strftime" STText STDateTime STText
+        , binOp "strftime" STText STDateTime STTemporal
+        , unOp "date" STDateTime STDateTime
+        , unOp "time" STDateTime STDateTime
         ]
 
 binOp :: String -> SqlType -> SqlType -> SqlType -> (SqlVar, (TyScheme v (Tp v)))

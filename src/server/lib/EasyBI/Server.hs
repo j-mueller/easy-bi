@@ -18,7 +18,7 @@ import Data.String                 (IsString (..))
 import EasyBI.Server.API           (API)
 import EasyBI.Server.Cube          (Cube)
 import EasyBI.Server.Eval          (DbConnectionPool, applyFieldModifiers,
-                                    evalQuery)
+                                    evalQueryDebug)
 import EasyBI.Server.State         (ServerState (..))
 import EasyBI.Server.State         qualified as State
 import EasyBI.Server.Visualisation (FieldInMode, InOut (..), Visualisation)
@@ -68,7 +68,7 @@ lkp :: (MonadError ServerError m) => ServerState -> NiceHash TypedQueryExpr -> m
 lkp state = lookupFromMaybe (State.findQuery state)
 
 eval :: (MonadFail m, MonadIO m, MonadError ServerError m) => DbConnectionPool -> ServerState -> NiceHash TypedQueryExpr -> [FieldInMode In] -> m [WrappedObject]
-eval pool state hsh fields = lkp state hsh >>= failOnError . applyFieldModifiers fields . teQuery >>= liftIO . evalQuery pool
+eval pool state hsh fields = lkp state hsh >>= failOnError . applyFieldModifiers fields . teQuery >>= liftIO . evalQueryDebug putStrLn pool
 
 lookupFromMaybe :: (MonadError ServerError m, Show k) => (k -> Maybe v) -> k -> m v
 lookupFromMaybe f k = case f k of

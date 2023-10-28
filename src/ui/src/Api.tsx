@@ -22,8 +22,13 @@ export type SortOrder =
   | "Descending"
   | "None"
 
+  export type NominalInFilter
+  = { tag: "list"; values: string[] }
+  | { tag: "top-n"; n: number }
+  | { tag: "NoFilter" }
+
 export type InFieldOptions
-  = { "tag": "nominal"; filter: GenericNoFilter }
+  = { "tag": "nominal"; filter: NominalInFilter }
   | { "tag": "ordinal"; filter: GenericNoFilter }
   | { "tag": "quantitative"; filter: GenericNoFilter }
   | { "tag": "temporal-abs"; filter: GenericNoFilter }
@@ -38,6 +43,7 @@ export type InField = {
 
 export type NominalOutFilter
   = { tag: "list"; values: string[] }
+  | { tag: "top-n"; n: number }
   | { tag: "NoFilter" }
 
 export type GenericNoFilter =
@@ -58,9 +64,11 @@ export type OutField = {
 };
 
 function mkInField(outField: OutField): InField {
+  const tg = outField.field_options.tag;
+  const options: InFieldOptions = tg == "nominal" ? { tag: "nominal", filter: { tag: "top-n", n: 10}} : { tag: tg, filter: {tag: "NoFilter"}};
   return { sql_field_name: outField.sql_field_name
          , display_name: outField.display_name ? outField.display_name : outField.sql_field_name
-         , field_options: { tag: outField.field_options.tag, filter: { tag: "NoFilter"}}
+         , field_options: options
          , sort_order: outField.sort_order
         }
 }

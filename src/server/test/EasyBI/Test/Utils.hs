@@ -14,37 +14,37 @@ module EasyBI.Test.Utils
   , withSampleDb
   ) where
 
-import Control.Exception              (catch, onException, throwIO)
-import Control.Monad.IO.Class         (MonadIO (..))
-import Data.ByteString                (ByteString)
-import Data.ByteString                qualified as BS
-import Data.Text                      (Text)
-import Data.Text                      qualified as Text
-import Data.Text.Encoding             qualified as Text
-import Data.Void                      (Void)
-import EasyBI.Sql.Catalog             (Catalog)
-import EasyBI.Sql.Catalog             qualified as Catalog
-import GHC.IO.Exception               (IOErrorType (UnsatisfiedConstraints),
-                                       ioe_type)
-import GHC.Stack                      (HasCallStack, SrcLoc, callStack,
-                                       getCallStack)
-import Language.SQL.SimpleSQL.Dialect qualified as Dialect
-import Language.SQL.SimpleSQL.Parse   qualified as Parse
-import Language.SQL.SimpleSQL.Syntax  (QueryExpr)
-import Paths_easy_bi_server           qualified as Pkg
-import System.Directory               (createDirectoryIfMissing,
-                                       removePathForcibly)
-import System.Exit                    (ExitCode (..))
-import System.FilePath                (takeDirectory, (</>))
-import System.Info                    (os)
-import System.IO                      (BufferMode (NoBuffering), Handle,
-                                       IOMode (AppendMode), hSetBuffering,
-                                       withFile)
-import System.IO.Temp                 (createTempDirectory,
-                                       getCanonicalTemporaryDirectory)
-import System.Process                 (ProcessHandle, waitForProcess)
-import Test.HUnit.Lang                (FailureReason (Reason),
-                                       HUnitFailure (HUnitFailure))
+import Control.Exception             (catch, onException, throwIO)
+import Control.Monad.IO.Class        (MonadIO (..))
+import Data.ByteString               (ByteString)
+import Data.ByteString               qualified as BS
+import Data.Text                     (Text)
+import Data.Text                     qualified as Text
+import Data.Text.Encoding            qualified as Text
+import Data.Void                     (Void)
+import EasyBI.Sql.Catalog            (Catalog)
+import EasyBI.Sql.Catalog            qualified as Catalog
+import EasyBI.Sql.Dialect            qualified as Dialect
+import GHC.IO.Exception              (IOErrorType (UnsatisfiedConstraints),
+                                      ioe_type)
+import GHC.Stack                     (HasCallStack, SrcLoc, callStack,
+                                      getCallStack)
+import Language.SQL.SimpleSQL.Parse  qualified as Parse
+import Language.SQL.SimpleSQL.Syntax (QueryExpr)
+import Paths_easy_bi_server          qualified as Pkg
+import System.Directory              (createDirectoryIfMissing,
+                                      removePathForcibly)
+import System.Exit                   (ExitCode (..))
+import System.FilePath               (takeDirectory, (</>))
+import System.Info                   (os)
+import System.IO                     (BufferMode (NoBuffering), Handle,
+                                      IOMode (AppendMode), hSetBuffering,
+                                      withFile)
+import System.IO.Temp                (createTempDirectory,
+                                      getCanonicalTemporaryDirectory)
+import System.Process                (ProcessHandle, waitForProcess)
+import Test.HUnit.Lang               (FailureReason (Reason),
+                                      HUnitFailure (HUnitFailure))
 
 -- | Open given log file non-buffered in append mode and print a message with
 -- filepath to @stderr@ on exceptions.
@@ -153,7 +153,7 @@ readDataFile source = do
 
 parseQuery :: String -> IO QueryExpr
 parseQuery str =
-  case Parse.parseQueryExpr Dialect.postgres "inline query" Nothing str of
+  case Parse.parseQueryExpr Dialect.sqlite "inline query" Nothing str of
     Left err -> failure (show err)
     Right x  -> pure x
 
@@ -161,7 +161,7 @@ sampleCatalog :: SampleDB -> IO Catalog
 sampleCatalog db = do
   let loc = sampleDbPath db </> sampleDbSchema db
   file <- Text.unpack . Text.decodeUtf8 <$> readDataFile loc
-  statements <- either (failure . show) pure (Parse.parseStatements Dialect.postgres loc Nothing file)
+  statements <- either (failure . show) pure (Parse.parseStatements Dialect.sqlite loc Nothing file)
   case Catalog.fromStatements mempty statements of
     Left err       -> failure (show err)
     Right (_, cat) -> pure cat

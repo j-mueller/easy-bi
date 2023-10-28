@@ -9,47 +9,47 @@ module EasyBI.Cli
   ( runCli
   ) where
 
-import Control.Exception              (bracket)
-import Control.Lens                   (at, use, (.=))
-import Control.Monad                  (void, when)
-import Control.Monad.Except           (MonadError (..), liftEither, runExceptT)
-import Control.Monad.IO.Class         (MonadIO (..))
-import Control.Monad.State.Strict     (execStateT)
-import Data.Bifunctor                 (Bifunctor (..))
-import Data.Foldable                  (traverse_)
-import Data.Map.Strict                qualified as Map
-import Data.Text                      qualified as Text
-import Data.Text.IO                   qualified as Text.IO
-import Data.Yaml                      qualified as Y
-import EasyBI.Cli.Command             (Command (..), SchemaConfig (..),
-                                       TimestampColumn (..), commandParser)
-import EasyBI.Server                  (runServer)
-import EasyBI.Server.Config           (DataSourceConfig, cubesFromCatalog)
-import EasyBI.Server.Config           qualified as Config
-import EasyBI.Server.Cube             (Cube)
-import EasyBI.Server.Eval             qualified as Eval
-import EasyBI.Server.State            (stateFromList)
-import EasyBI.Sql.BuiltinTypes        (defaultTypeEnv)
-import EasyBI.Sql.Catalog             (Catalog, TypedQueryExpr (..), tables,
-                                       views)
-import EasyBI.Sql.Class               (render, runInferType)
-import EasyBI.Sql.Effects.Types       (generalise)
-import EasyBI.Sql.Types               (SqlType (STDateTime),
-                                       SqlVar (AnIdentifier), TypeEnv (..),
-                                       rowFromSchema)
-import EasyBI.Util.MonadLog           (MonadLog, logInfoS, logWarn, logWarnS,
-                                       runMonadLogKatipT)
-import EasyBI.Util.NiceHash           (Plain)
-import Katip                          qualified as K
-import Language.SQL.SimpleSQL.Dialect qualified as Dialect
-import Language.SQL.SimpleSQL.Parse   (ParseError (..))
-import Language.SQL.SimpleSQL.Parse   qualified as Parse
-import Language.SQL.SimpleSQL.Syntax  (Statement (..))
-import Options.Applicative            (customExecParser, disambiguate, helper,
-                                       idm, info, prefs, showHelpOnEmpty,
-                                       showHelpOnError)
-import System.Exit                    (exitFailure)
-import System.IO                      (stdout)
+import Control.Exception             (bracket)
+import Control.Lens                  (at, use, (.=))
+import Control.Monad                 (void, when)
+import Control.Monad.Except          (MonadError (..), liftEither, runExceptT)
+import Control.Monad.IO.Class        (MonadIO (..))
+import Control.Monad.State.Strict    (execStateT)
+import Data.Bifunctor                (Bifunctor (..))
+import Data.Foldable                 (traverse_)
+import Data.Map.Strict               qualified as Map
+import Data.Text                     qualified as Text
+import Data.Text.IO                  qualified as Text.IO
+import Data.Yaml                     qualified as Y
+import EasyBI.Cli.Command            (Command (..), SchemaConfig (..),
+                                      TimestampColumn (..), commandParser)
+import EasyBI.Server                 (runServer)
+import EasyBI.Server.Config          (DataSourceConfig, cubesFromCatalog)
+import EasyBI.Server.Config          qualified as Config
+import EasyBI.Server.Cube            (Cube)
+import EasyBI.Server.Eval            qualified as Eval
+import EasyBI.Server.State           (stateFromList)
+import EasyBI.Sql.BuiltinTypes       (defaultTypeEnv)
+import EasyBI.Sql.Catalog            (Catalog, TypedQueryExpr (..), tables,
+                                      views)
+import EasyBI.Sql.Class              (render, runInferType)
+import EasyBI.Sql.Dialect            qualified as Dialect
+import EasyBI.Sql.Effects.Types      (generalise)
+import EasyBI.Sql.Types              (SqlType (STDateTime),
+                                      SqlVar (AnIdentifier), TypeEnv (..),
+                                      rowFromSchema)
+import EasyBI.Util.MonadLog          (MonadLog, logInfoS, logWarn, logWarnS,
+                                      runMonadLogKatipT)
+import EasyBI.Util.NiceHash          (Plain)
+import Katip                         qualified as K
+import Language.SQL.SimpleSQL.Parse  (ParseError (..))
+import Language.SQL.SimpleSQL.Parse  qualified as Parse
+import Language.SQL.SimpleSQL.Syntax (Statement (..))
+import Options.Applicative           (customExecParser, disambiguate, helper,
+                                      idm, info, prefs, showHelpOnEmpty,
+                                      showHelpOnError)
+import System.Exit                   (exitFailure)
+import System.IO                     (stdout)
 
 runCli :: IO ()
 runCli = do
@@ -96,7 +96,7 @@ loadSchema SchemaConfig{scSqlFile, scTimestampColumns} = do
   let mkCol (TimestampColumn c) = (c, STDateTime)
       typeOverrides = Map.fromList $ fmap mkCol scTimestampColumns
   txt <- Text.unpack <$> liftIO (Text.IO.readFile scSqlFile)
-  statements <- either (throwError . SqlParseError) pure (Parse.parseStatements Dialect.postgres scSqlFile Nothing txt)
+  statements <- either (throwError . SqlParseError) pure (Parse.parseStatements Dialect.sqlite scSqlFile Nothing txt)
   flip execStateT mempty $ flip traverse_ statements $ \case
     CreateTable names elements -> do
       logInfoS ("Create table " <> show names)
@@ -107,7 +107,7 @@ loadSchema SchemaConfig{scSqlFile, scTimestampColumns} = do
       tyEnv <- TypeEnv <$> use tables
       case runInferType (tyEnv <> defaultTypeEnv) queryExpr of
         Left err -> do
-          logWarnS $ "Type inference failed for '" <> render Dialect.postgres queryExpr <> "'"
+          logWarnS $ "Type inference failed for '" <> render Dialect.sqlite queryExpr <> "'"
           logWarn err
         Right (_, generalise -> tp, _) -> do
           views . at names .= Just (TypedQueryExpr queryExpr tp)

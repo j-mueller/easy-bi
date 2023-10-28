@@ -7,8 +7,7 @@ module EasyBI.Sql.Class
   , runInferType
   , typeConstraints
     -- * Re-exported dialects
-  , ansi2011
-  , postgres
+  , sqlite
   ) where
 
 import Control.Monad.Except           (ExceptT, MonadError (throwError),
@@ -16,13 +15,14 @@ import Control.Monad.Except           (ExceptT, MonadError (throwError),
 import Data.Functor.Foldable          (cataA)
 import Data.Functor.Identity          (Identity (..))
 import Data.Map.Strict                qualified as Map
+import EasyBI.Sql.Dialect             (sqlite)
 import EasyBI.Sql.Effects.Annotate    (AnnotateT, MonadAnnotate, runAnnotateT)
 import EasyBI.Sql.Effects.Fresh       (FreshT, MonadFresh, evalFreshT)
 import EasyBI.Sql.Effects.Types       (Assumption, Constraint, SqlVar,
                                        Substitution, Tp, TyVar, TypeEnv)
 import EasyBI.Sql.Types               (AnnotateErr, InferError (..))
 import EasyBI.Sql.Types               qualified as Types
-import Language.SQL.SimpleSQL.Dialect (Dialect, ansi2011, postgres)
+import Language.SQL.SimpleSQL.Dialect (Dialect)
 import Language.SQL.SimpleSQL.Parse   (ParseError)
 import Language.SQL.SimpleSQL.Parse   qualified as Parse
 import Language.SQL.SimpleSQL.Pretty  qualified as Pretty
