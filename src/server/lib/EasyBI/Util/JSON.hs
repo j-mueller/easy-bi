@@ -2,8 +2,11 @@
 {-# LANGUAGE LambdaCase         #-}
 {-# LANGUAGE ViewPatterns       #-}
 module EasyBI.Util.JSON
-  ( WrappedObject (..)
+  ( SerialiseViaJSON (..)
+  , WrappedObject (..)
+  , _SerialiseViaJSON
   , _WrappedObject
+  , customJsonOptions
   , fromValue
   ) where
 
@@ -32,6 +35,16 @@ instance Show WrappedObject where
   show obj =
     Text.unpack $ Text.decodeUtf8 $ BSL.toStrict $ Pretty.encodePretty obj
 
+-- | Deriving a @Serialise@ instance from the @ToJSON@ & @FromJSON@ instances
+newtype SerialiseViaJSON a = SerialiseViaJSON{ unSerialiseViaJSON :: a}
+
+instance (ToJSON a, FromJSON a) => Serialise (SerialiseViaJSON a) where
+  encode = encode . Aeson.encode . unSerialiseViaJSON
+  decode = decode >>= either fail (pure . SerialiseViaJSON) . Aeson.eitherDecode
+
+_SerialiseViaJSON :: Iso' (SerialiseViaJSON a) a
+_SerialiseViaJSON = iso unSerialiseViaJSON SerialiseViaJSON
+
 fromValue :: Aeson.Value -> Maybe WrappedObject
 fromValue (Aeson.Object obj) = Just (WrappedObject obj)
 fromValue _                  = Nothing
@@ -45,3 +58,7 @@ instance FromField WrappedObject where
 
 _WrappedObject :: Iso' WrappedObject Object
 _WrappedObject = iso (\(WrappedObject o) -> o) WrappedObject
+
+-- | JSON options that drop @n@ characters and then apply @Aeson.camel2@ to the rest
+customJsonOptions :: Int -> Aeson.Options
+customJsonOptions i = Aeson.defaultOptions{Aeson.fieldLabelModifier= Aeson.camelTo2 '_' . drop i }

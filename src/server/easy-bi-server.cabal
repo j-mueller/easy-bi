@@ -9,9 +9,11 @@ maintainer: Jann Müller <j-mueller@users.noreply.github.com>
 copyright: (c) 2022 Jann Müller
 build-type:          Simple
 data-files:
-  test/data/sales_data_sample.csv
-  test/data/sales.db
-  test/data/schema.sql
+  test/data/sales/sales_data_sample.csv
+  test/data/sales/sales.db
+  test/data/sales/schema.sql
+  test/data/outages/outages.sqlite
+  test/data/outages/schema.sql
 
 common lang
     default-language: Haskell2010
@@ -34,9 +36,10 @@ library
     lib
   exposed-modules:
     EasyBI.Server.API
+    EasyBI.Server.Config
+    EasyBI.Server.Cube
     EasyBI.Server.Eval
     EasyBI.Server.State
-    EasyBI.Server.Cube
     EasyBI.Server.Visualisation
     EasyBI.Server
     EasyBI.Util.JSON
@@ -90,6 +93,7 @@ test-suite easy-bi-server-test
     easy-bi-sql,
     easy-bi-vis,
     text,
+    containers,
     bytestring,
     directory,
     filepath,

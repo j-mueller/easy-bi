@@ -1,9 +1,19 @@
-[ ] Lattice of fields
-    - auto insert time lattice?
-        - day - week - month - quarter - year
-        - month - season
-        - hour-of-day - day-of-week - week-of-month - week-of-year
-[ ] Sort order
+### To Do
+
+[ ] Limit nominal fields to top-n
+[ ] update main branch
+[ ] Validate inputs
+    - unique field names
+    - types can be inferred for all fields
+[ ] Generate graphs directly from CLI
+
+### Done
+
+[X] Sort order
+[X] support field groups in UI
+[X] config file in addition to SQL schema, for specifying groups.
+[X] Groups of fields to be shown in UI. For example, different ways of showing the time (date, quarter, day-of-week, etc.).
+
 
 https://learn.microsoft.com/en-us/dotnet/standard/data/sqlite/user-defined-functions
 

@@ -1,5 +1,5 @@
 import React, { ReactNode, useEffect, useState } from "react";
-import Api, { Archetype, Cube, Field, Measurement, Selections, SortOrder, Visualisation } from "../Api";
+import Api, { Archetype, Cube, InField, FieldGroup, Measurement, OutField, Selections, SortOrder, Visualisation, WithHash } from "../Api";
 import { Link, useParams } from "react-router-dom";
 import Page from "./Page";
 import { map, mergeMap, Observable, scan, startWith, Subject } from "rxjs";
@@ -12,7 +12,7 @@ import { Lens } from 'monocle-ts';
 const CubeTitle: React.FC<{ cubeId: string }> = ({ cubeId }) => {
   const [cubeTitle, setCubeTitle] = useState<string>(cubeId);
   useEffect(() => {
-    const sub = Api.cube(cubeId).subscribe(cube => setCubeTitle(cube.cTitle));
+    const sub = Api.cube(cubeId).subscribe(cube => setCubeTitle(cube.name));
     return () => sub.unsubscribe();
   }, [cubeId])
 
@@ -58,24 +58,36 @@ function backgroundAndBorder(isActive: boolean): string {
   return isActive ? "bg-eucalyptus-300 text-white border border-slate-200" : "bg-slate-100 text-slate-400 border border-slate-200";
 }
 
-const FieldRow: React.FC<{field: Field, currentSelection: Observable<Selections<Field>>, selChange: Subject<Change<Selections<Field>>>}> = ({field, currentSelection, selChange}) => {
+const FieldGroupRow: React.FC<{fieldGroup: FieldGroup, currentSelection: Observable<Selections<InField>>, selChange: Subject<Change<Selections<InField>>> }> = ({fieldGroup, currentSelection, selChange}) => {
+  return <li>
+    <div className="flex flex-col">
+    <span>{fieldGroup.name}</span>
+    <ul>
+      <FieldRow field={fieldGroup.primary_field} currentSelection={currentSelection} selChange={selChange} />
+      {fieldGroup.other_fields.map(field => <FieldRow field={field} currentSelection={currentSelection} selChange={selChange} />)}
+    </ul>
+    </div>
+  </li>
+}
+
+const FieldRow: React.FC<{field: OutField, currentSelection: Observable<Selections<InField>>, selChange: Subject<Change<Selections<InField>>>}> = ({field, currentSelection, selChange}) => {
   const [isActive, setIsActive] = useState<boolean>(false);
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
-  const [currentVal, setCurrentVal] = useState<Field>(field);
+  const [currentVal, setCurrentVal] = useState<InField>(Api.mkInField(field));
 
   useEffect(() => {
-    const sub = currentSelection.subscribe(sel => setIsActive(sel._WildCards.findIndex(f => f.name == field.name) >= 0));
-    const sub2 = currentSelection.pipe(map(x => x._WildCards)).subscribe(fields =>  setCurrentVal(fields.find(x => x.name === field.name) || field));
+    const sub = currentSelection.subscribe(sel => setIsActive(sel._WildCards.findIndex(f => f.sql_field_name == field.sql_field_name) >= 0));
+    const sub2 = currentSelection.pipe(map(x => x._WildCards)).subscribe(fields =>  setCurrentVal(fields.find(x => x.sql_field_name === field.sql_field_name) || Api.mkInField(field)));
     
     return () => { sub.unsubscribe(); sub2.unsubscribe};
   }, [])
 
   function toggle(): void {
-    selChange.next(_WildCardsL.modify((a: Field[]) => isActive ? a.filter(f => f.name != field.name) : a.concat([field])));
+    selChange.next(_WildCardsL.modify((a: InField[]) => isActive ? a.filter(f => f.sql_field_name != field.sql_field_name) : a.concat([Api.mkInField(field)])));
   }
 
   function rotateSortOrder(): void {
-    selChange.next(_WildCardsL.modify((a: Field[]) => a.map(f => f.name === field.name ? _SortOrder.modify(nextOrder)(f) : f)));
+    selChange.next(_WildCardsL.modify((a: InField[]) => a.map(f => f.sql_field_name === field.sql_field_name ? _SortOrder.modify(nextOrder)(f) : f)));
   }
 
   function nextOrder(so: SortOrder): SortOrder {
@@ -90,17 +102,17 @@ const FieldRow: React.FC<{field: Field, currentSelection: Observable<Selections<
   const exp = <>
     <div className="mx-2 flex flew-row gap-2 text-base">
       <span >Sort order:</span>
-      <span onClick={rotateSortOrder} className="bg-slate-100 px-2 cursor-pointer">{currentVal.sortOrder}</span>
+      <span onClick={rotateSortOrder} className="bg-slate-100 px-2 cursor-pointer">{currentVal.sort_order}</span>
     </div>
     </>;
 
-  return <li className={`flex flex-col rounded m-1 p-1 ${border(isActive)} hover:bg-slate-200 ${isActive ? "bg-slate-200" : ""}`} key={field.name}>
+  return <li className={`flex flex-col rounded m-1 p-1 ${border(isActive)} hover:bg-slate-200 ${isActive ? "bg-slate-200" : ""}`} key={field.sql_field_name}>
     <div className="flex flex-row h-12 items-center">
       <div className={`flex-grow flex flex-row items-center cursor-pointer`} onClick={toggle}>
         <div className={`${backgroundAndBorder(isActive)} h-10 w-10 flex flex-row justify-center items-center`}>
-          {measurementIcon(field.fieldType)}
+          {measurementIcon("Nominal")}
         </div>
-        <span className={"ml-2 text-s text-slate-800"}>{field.name}</span>
+        <span className={"ml-2 text-s text-slate-800"}>{field.display_name ? field.display_name : field.sql_field_name}</span>
       </div>
       <button className="p-2 cursor-pointer text-slate-400 hover:text-slate-800" onClick={() => setIsExpanded(!isExpanded)}>{isExpanded ? "-" : "+"}</button>
     </div>
@@ -110,18 +122,18 @@ const FieldRow: React.FC<{field: Field, currentSelection: Observable<Selections<
 
 export type Change<F> = (f: F) => F
 
-const SelectionsComp: React.FC<{currentSelection: Observable<Selections<Field>>, selChange: Subject<Change<Selections<Field>>>, fields: Observable<Field[]> }> = ({currentSelection, selChange, fields}) => {
-  const [allFields, setFields] = useState<Field[]>([]);
+const SelectionsComp: React.FC<{currentSelection: Observable<Selections<InField>>, selChange: Subject<Change<Selections<InField>>>, fields: Observable<FieldGroup[]> }> = ({currentSelection, selChange, fields}) => {
+  const [allFields, setFields] = useState<FieldGroup[]>([]);
 
   useEffect(() => {
     const sub = fields.subscribe(setFields);
     return () => sub.unsubscribe();
   }, [])
 
-  return <ul className="flex flex-col">{allFields.map(f => <FieldRow field={f} currentSelection={currentSelection} selChange={selChange}/>)}</ul>
+  return <ul className="flex flex-col">{allFields.map(f => <FieldGroupRow fieldGroup={f} currentSelection={currentSelection} selChange={selChange}/>)}</ul>
 }
 
-const ChartTypeRow: React.FC<{chartType: Archetype, changes: Subject<Change<Selections<Field>>>, selections: Observable<Selections<Field>> }> = ({chartType, changes, selections}) => {
+const ChartTypeRow: React.FC<{chartType: Archetype, changes: Subject<Change<Selections<InField>>>, selections: Observable<Selections<InField>> }> = ({chartType, changes, selections}) => {
   const [isActive, setIsActive] = useState<boolean>(false);
   const itemClass = `w-12 h-12 m-1 p-1 flex items-center align-middle ${backgroundAndBorder(isActive)}`
 
@@ -134,15 +146,15 @@ const ChartTypeRow: React.FC<{chartType: Archetype, changes: Subject<Change<Sele
     changes.next(_ArchetypeL.modify((a: Archetype[]) => isActive ? a.filter(f => f != chartType) : a.concat([chartType])));
   }
 
-  return <div onClick={toggle} className={itemClass}>
+  return <div onClick={toggle} className={itemClass} key={chartType}>
     <ArchetypeC archetype={chartType} cls="h-8 w-8" />
   </div>
 }
 
-const ChartTypeSelection: React.FC<{ changes: Subject<Change<Selections<Field>>>, selections: Observable<Selections<Field>> }> = ({changes, selections}) => {
+const ChartTypeSelection: React.FC<{ changes: Subject<Change<Selections<InField>>>, selections: Observable<Selections<InField>> }> = ({changes, selections}) => {
   const allTypes: Archetype[] = ["Heatmap", "HorizontalBarChart", "Linechart", "Scatterplot", "VerticalBarChart", "Misc"]
 
-  return <div className="flex flex-col mb-4 bg-slate-50 px-2">
+  return <div className="flex flex-col mb-4 bg-slate-50 px-2" key="chart-type-selection">
             <span className="my-3 text-l font-medium">Chart type</span>
             <div className="flex flex-row flex-wrap flex-1">
               {allTypes.map(tp => <ChartTypeRow chartType={tp} changes={changes} selections={selections} />)}
@@ -150,13 +162,13 @@ const ChartTypeSelection: React.FC<{ changes: Subject<Change<Selections<Field>>>
           </div>
 }
 
-const emptySelections: Selections<Field> = { _WildCards: [], _Color: [], _selectedArchetype: [], _selectedMark: [], _XAxis: [], _YAxis: [] }
+const emptySelections: Selections<InField> = { _WildCards: [], _Color: [], _selectedArchetype: [], _selectedMark: [], _XAxis: [], _YAxis: [] }
 
-const _WildCardsL: Lens<Selections<Field>, Field[]> = Lens.fromProp<Selections<Field>>()('_WildCards');
-const _ArchetypeL: Lens<Selections<Field>, Archetype[]> = Lens.fromProp<Selections<Field>>()('_selectedArchetype')
-const _SortOrder: Lens<Field, SortOrder> = Lens.fromProp<Field>()('sortOrder');
+const _WildCardsL: Lens<Selections<InField>, InField[]> = Lens.fromProp<Selections<InField>>()('_WildCards');
+const _ArchetypeL: Lens<Selections<InField>, Archetype[]> = Lens.fromProp<Selections<InField>>()('_selectedArchetype')
+const _SortOrder: Lens<InField, SortOrder> = Lens.fromProp<InField>()('sort_order');
 
-const VisCard: React.FC<{vis: Visualisation}> = ({vis}) => {
+const VisCard: React.FC<{vis: WithHash<Visualisation>}> = ({vis}) => {
 
   const [dt, setDt] = useState<any[]>([]);
 
@@ -169,19 +181,19 @@ const VisCard: React.FC<{vis: Visualisation}> = ({vis}) => {
   }
 
   useEffect(() => {
-    const sub = Api.evl({q: vis.visQuery, fields: vis.visFields}).subscribe(setData);
+    const sub = Api.evl({q: vis[1].visQuery, fields: vis[1].visFields}).subscribe(setData);
 
     return () => sub.unsubscribe();
-  }, [vis])
+  }, [vis[0]])
 
-  return <VegaLite style={{height: "500px"}} className="w-full border border-slate-300 mb-8" spec={vis.visDefinition} actions={true} data={{table: dt}} />
+  return <VegaLite style={{height: "500px"}} className="w-full border border-slate-300 mb-8" spec={vis[1].visDefinition} actions={true} data={{table: dt}} key={vis[0]} />
 }
 
 const CubePage: React.FC<{ cubeId: string }> = ({ cubeId }) => {
-  const [availableVisualisations, setAvailableVisualisations] = useState<Visualisation[]>([]);
-  const [selectedVisualisation] = useState<Subject<Visualisation>>(new Subject<Visualisation>());
-  const [selChange] = useState<Subject<Change<Selections<Field>>>>(new Subject());
-  const [selections] = useState<Observable<Selections<Field>>>(
+  const [availableVisualisations, setAvailableVisualisations] = useState<WithHash<Visualisation>[]>([]);
+  const [selectedVisualisation] = useState<Subject<WithHash<Visualisation>>>(new Subject<WithHash<Visualisation>>());
+  const [selChange] = useState<Subject<Change<Selections<InField>>>>(new Subject());
+  const [selections] = useState<Observable<Selections<InField>>>(
     selChange.pipe(
       scan((acc, f) => f(acc), emptySelections),
       startWith(emptySelections)
@@ -193,8 +205,8 @@ const CubePage: React.FC<{ cubeId: string }> = ({ cubeId }) => {
   useEffect(() => {
     const sub = 
       cube.pipe(
-        map(cube => cube.cQuery),
-        mergeMap(query => selections.pipe(map<Selections<Field>, [string, Selections<Field>]>(selections => ([query, selections])))),
+        map(cube => cube.query),
+        mergeMap(query => selections.pipe(map<Selections<InField>, [string, Selections<InField>]>(selections => ([query, selections])))),
         mergeMap(([q, selections]) => Api.vis({q, selections}))
       ).subscribe(x => {
         setAvailableVisualisations(x);
@@ -202,15 +214,15 @@ const CubePage: React.FC<{ cubeId: string }> = ({ cubeId }) => {
       });
     const sub3 = selectedVisualisation.subscribe(console.log);
 
-    const sub4 = cube.subscribe(x => setCubeName(x.cTitle));
+    const sub4 = cube.subscribe(x => setCubeName(x.display_name));
 
     return () => { sub.unsubscribe(); sub3.unsubscribe(); sub4.unsubscribe(); }
   }, [cubeId]);
 
-  function dimSelection(name:string, p: (f: Field) => boolean): ReactNode {
-    return <div className="flex flex-col mb-4 bg-slate-50 px-2">
+  function dimSelection(name:string, p: (f: FieldGroup) => boolean): ReactNode {
+    return <div className="flex flex-col mb-4 bg-slate-50 px-2" key={name}>
             <span className="my-3 text-l font-medium">{name}</span>
-            <SelectionsComp currentSelection={selections} fields={cube.pipe(map(c => c.cFields.filter(p)))} selChange={selChange} />
+            <SelectionsComp currentSelection={selections} fields={cube.pipe(map(c => c.fields.filter(p)))} selChange={selChange} />
           </div>
   }
 
@@ -225,11 +237,11 @@ const CubePage: React.FC<{ cubeId: string }> = ({ cubeId }) => {
   return <Page navs={[]} title={<CubeTitle cubeId={cubeId} />} top={breadcrumbs}>
     <div className="flex flex-row flex-0 h-full">
       <div className="flex flex-col min-w-1/5 w-1/5 bg-slate-50 border border-r-slate-200 overflow-y-auto">
-        {dimSelection("Dimensions", f => f.fieldType != "Quantitative")}
-        {dimSelection("Measures", f => f.fieldType == "Quantitative")}
+        {dimSelection("Dimensions", f => f.primary_field.field_options.tag != "quantitative")}
+        {dimSelection("Measures", f => f.primary_field.field_options.tag == "quantitative")}
         <ChartTypeSelection changes={selChange} selections={selections} />
       </div>
-      <div style={{height: "98%"}} className="grid m-4 gap-2 flex-grow bottom-0 overflow-y-auto">
+      <div style={{height: "98%"}} className="grid m-4 gap-2 flex-grow bottom-0 overflow-y-auto" key="vis-cards">
         {availableVisualisations.map(vis => <VisCard vis={vis}/>)}
       </div>
     </div>

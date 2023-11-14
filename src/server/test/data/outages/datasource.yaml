@@ -1,0 +1,35 @@
+outages:
+  - name: Date
+    description: "The start date of the outage"
+    primary_field:
+      field_name: outage_day_of_month
+      display_name: "Day of month"
+    other_fields:
+      - field_name: outage_month
+        display_name: "Month"
+  - name: Operator
+    description: "Operator that reported the outage"
+    primary_field:
+      field_name: operator
+    other_fields: []
+  - name: Count
+    description: "Total number of outages"
+    primary_field:
+      field_name: count
+    other_fields: []
+  - name: City
+    description: "The city where the outage happened"
+    primary_field:
+      field_name: city
+    other_fields: []
+  - name: Duration
+    description: "Duration of the outage"
+    primary_field:
+      field_name: duration_sum
+      display_name: "Duration (sum)"
+      description: "Total duration in minutes"
+    other_fields:
+      - field_name: duration_avg
+        display_name: "Duration (avg)"
+        description: "Average duration in minutes"
+

@@ -1,6 +1,10 @@
+{-# LANGUAGE DataKinds         #-}
+{-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE MonoLocalBinds    #-}
 {-# LANGUAGE NamedFieldPuns    #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell   #-}
 {-# LANGUAGE ViewPatterns      #-}
 {-# OPTIONS_GHC -Wno-incomplete-record-updates #-} -- needed beacuse of @makeSelect@
 {-| Evaluate EasyBI queries against a database
@@ -9,6 +13,8 @@ module EasyBI.Server.Eval
   ( DbBackend (..)
   , DbConnectionPool (..)
   , evalQuery
+  , evalQueryDebug
+    -- ** SQLite backend
   , evalQuerySQLite
   , withConnection
   , withDbConnectionPool
@@ -16,26 +22,40 @@ module EasyBI.Server.Eval
   , asJSONRowsPostgres
   , asJSONRowsSqlite
     -- * Restricting queries
+  , SelectQuery (..)
   , applyFieldModifiers
-  , restrictTo
+  , fetchFirst
+  , from
+  , having
+  , offset
+  , setQuantifier
+  , where_
   ) where
 
 import Control.Exception              (bracket)
-import Control.Monad                  ((>=>))
-import Data.Maybe                     (mapMaybe)
+import Control.Lens                   (Prism', makeLenses, preview, prism',
+                                       review, (%=), (&), (.~))
+import Control.Monad.Except           (MonadError (..))
+import Control.Monad.State            (execStateT)
+import Data.Foldable                  (traverse_)
+import Data.Map                       (Map)
+import Data.Map                       qualified as Map
 import Data.Pool                      (Pool)
 import Data.Pool                      qualified as Pool
-import Data.Set                       qualified as Set
 import Data.String                    (IsString (..))
 import Database.SQLite.Simple         qualified as Sqlite
-import EasyBI.Server.Visualisation    (Field (..), SortOrder (..))
+import EasyBI.Server.Visualisation    (AMeasurement (..), FieldInMode (..),
+                                       InOut (..), MeasurementAndField (..),
+                                       SortOrder (..), SqlFieldName (..),
+                                       fromSqlName)
 import EasyBI.Util.JSON               (WrappedObject (..))
 import Language.SQL.SimpleSQL.Dialect qualified as Dialect
 import Language.SQL.SimpleSQL.Pretty  qualified as Pretty
 import Language.SQL.SimpleSQL.Syntax  (Alias (..), Direction (..),
                                        GroupingExpr (..), Name (..),
                                        NullsOrder (..), QueryExpr (..),
-                                       ScalarExpr (..), SortSpec (..),
+                                       ScalarExpr (App, BinOp, Iden, Star, StringLit),
+                                       SetQuantifier, SortSpec (..),
                                        TableRef (..), makeSelect)
 
 data DbBackend
@@ -92,15 +112,21 @@ withDbConnectionPool backend action =
 {-| Evaluate a query, returning a list of JSON objects
 -}
 evalQuery :: DbConnectionPool -> QueryExpr -> IO [WrappedObject]
-evalQuery dbBackend query =
+evalQuery dbBackend = evalQueryDebug (\_ -> pure ()) dbBackend
+
+{-| Evaluate a query, returning a list of JSON objects and using the given function to log the query output
+-}
+evalQueryDebug :: (String -> IO ()) -> DbConnectionPool -> QueryExpr -> IO [WrappedObject]
+evalQueryDebug dbg dbBackend query =
   withConnection dbBackend
-    (evalQuerySQLite query)
+    (evalQuerySQLite dbg query)
 
 {-| Evaluate a query pn a SQLite database, returning a list of JSON objects
 -}
-evalQuerySQLite :: QueryExpr -> Sqlite.Connection -> IO [WrappedObject]
-evalQuerySQLite (asJSONRowsSqlite -> query) connection = do
+evalQuerySQLite :: (String -> IO ()) -> QueryExpr -> Sqlite.Connection -> IO [WrappedObject]
+evalQuerySQLite dbg (asJSONRowsSqlite -> query) connection = do
   let qry = Pretty.prettyQueryExpr Dialect.postgres query
+  dbg qry
   fmap Sqlite.fromOnly <$> Sqlite.query_ connection (fromString qry)
 
 {-| Modify the query to return a list of JSON objects. Uses the sqlite-specific @json_object@
@@ -128,6 +154,50 @@ selectList = \case
   _                       -> []
 
 
+data SelectQuery =
+  SelectQuery
+    { _setQuantifier :: SetQuantifier
+    , _selectList_   :: [(ScalarExpr, Maybe Name)]
+    , _from          :: [TableRef]
+    , _where_        :: Maybe ScalarExpr
+    , _groupBy       :: [GroupingExpr]
+    , _having        :: Maybe ScalarExpr
+    , _orderBy       :: [SortSpec]
+    , _offset        :: Maybe ScalarExpr
+    , _fetchFirst    :: Maybe ScalarExpr
+    }
+
+makeLenses ''SelectQuery
+
+_Select :: Prism' QueryExpr SelectQuery
+_Select = prism' from_ to_ where
+  to_ Select{qeSetQuantifier, qeSelectList, qeFrom, qeWhere, qeGroupBy, qeHaving, qeOrderBy, qeOffset, qeFetchFirst} =
+    Just
+      SelectQuery
+        { _setQuantifier = qeSetQuantifier
+        , _selectList_   = qeSelectList
+        , _from          = qeFrom
+        , _where_        = qeWhere
+        , _groupBy       = qeGroupBy
+        , _having        = qeHaving
+        , _orderBy       = qeOrderBy
+        , _offset        = qeOffset
+        , _fetchFirst    = qeFetchFirst
+        }
+  to_ _ = Nothing
+  from_ SelectQuery{_setQuantifier, _selectList_, _from, _where_, _groupBy, _having, _orderBy, _offset, _fetchFirst} =
+          Select
+            { qeSetQuantifier = _setQuantifier
+            , qeSelectList    = _selectList_
+            , qeFrom          = _from
+            , qeWhere         = _where_
+            , qeGroupBy       = _groupBy
+            , qeHaving        = _having
+            , qeOrderBy       = _orderBy
+            , qeOffset        = _offset
+            , qeFetchFirst    = _fetchFirst
+            }
+
 {-| Modify the query to return a list of JSON objects. Uses the postgres-specific
 @row_to_json@ operator.
 -}
@@ -146,37 +216,37 @@ asJSONRowsPostgres e =
             }
       }
 
-applyFieldModifiers :: MonadFail m => [Field] -> QueryExpr -> m QueryExpr
-applyFieldModifiers fields =
-  restrictTo (name <$> fields)
-  >=> applySortOrder fields
-
-applySortOrder :: MonadFail m => [Field] -> QueryExpr -> m QueryExpr
-applySortOrder fields = \case
-  x@Select{qeOrderBy=oldOrderBy} -> do
-    let mapDir = \case
-          Ascending  -> Just Asc
-          Descending -> Just Desc
-          None       -> Nothing
-        mkSpec Field{name, sortOrder=(mapDir -> Just o)} =
-          Just (SortSpec (Iden [Name Nothing name]) o NullsOrderDefault)
-        mkSpec _ = Nothing
-        statements = mapMaybe mkSpec fields
-        newOrderBy = statements ++ oldOrderBy
-    pure x{qeOrderBy = newOrderBy}
-  _ -> fail "Unsupported query"
-
-{-| Restrict the SELECT and GROUP bits of the query to
-the fields in the given list
+{-| Build the query by inserting the given field definitions into the
+original SQL query
 -}
-restrictTo :: MonadFail m => [String] -> QueryExpr -> m QueryExpr
-restrictTo (Set.fromList -> fields) = \case
-  x@Select{qeSelectList=allSelects, qeGroupBy=allGroups} ->
-    let hasName (Just (Name _ n)) = Set.member n fields
-        hasName _                 = False
-        isGroup (SimpleGroup  (Iden [Name _ n])) = Set.member n fields
-        isGroup _                                = False
-        newSelects = filter (hasName . snd) allSelects
-        newGroups  = filter isGroup allGroups
-    in pure x{qeSelectList = newSelects, qeGroupBy = newGroups}
-  _ -> fail "Unsupported query"
+applyFieldModifiers :: MonadError QueryBuildError m => [FieldInMode In] -> QueryExpr -> m QueryExpr
+applyFieldModifiers fields (preview _Select -> Just k) = do
+  defs <- fieldDefinitions k
+  fmap (review _Select) $ flip execStateT (k & selectList_ .~ mempty & groupBy .~ mempty) $ flip traverse fields $ \FieldInMode{sqlFieldName, sortOrder, fieldOptions=MeasurementAndField{mFieldType}} -> do
+    (scalarExpr, fieldName) <- maybe (throwError $ FieldNotFound sqlFieldName) pure (Map.lookup sqlFieldName defs)
+    selectList_ %= (:) (scalarExpr, Just fieldName)
+    traverse_ (\o -> orderBy %= (:) (SortSpec scalarExpr o NullsOrderDefault)) (mapDir sortOrder)
+    case mFieldType of
+      AQuantitativeMeasurement -> pure ()
+      _                        -> groupBy %= (:) (SimpleGroup scalarExpr)
+applyFieldModifiers _ _ = throwError UnexpectedQueryType
+
+mapDir :: SortOrder -> Maybe Direction
+mapDir = \case
+  Ascending  -> Just Asc
+  Descending -> Just Desc
+  None       -> Nothing
+
+data QueryBuildError =
+  FieldNotFound SqlFieldName
+  | UnnamedFieldInCubeDefinition -- ^ Found an unnamed field
+  | UnexpectedQueryType -- ^ Exepected select, found something else
+    deriving Show
+
+{-| The field definitions of the original SQL query that defines the cube
+-}
+fieldDefinitions :: MonadError QueryBuildError m => SelectQuery -> m (Map SqlFieldName (ScalarExpr, Name))
+fieldDefinitions SelectQuery{_selectList_} = do
+  let mkEntry (_, Nothing)   = throwError UnnamedFieldInCubeDefinition
+      mkEntry (expr, Just n) = pure (fromSqlName n, (expr, n))
+  Map.fromList <$> traverse mkEntry _selectList_

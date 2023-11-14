@@ -15,7 +15,7 @@ const CubeList: React.FC = () => {
     function mkCubeRow(cube: WithHash<Cube>): ReactNode {
         return <li className="hover:bg-gray-200" key={cube[0]}>
                 <Link to={"/cubes/" + cube[0]} className="block">
-                    {cube[1].cTitle}
+                    {cube[1].display_name}
                 </Link>
             </li>;
     }

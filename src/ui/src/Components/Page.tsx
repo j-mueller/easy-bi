@@ -23,7 +23,7 @@ const Page: React.FC<{title?: JSX.Element, navs: PageTabLink[], action?: JSX.Ele
                     <div className="mb-2">
                         {top}
                     </div>
-                    <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">{title}</h2>
+                    <div className="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">{title}</div>
                     <div className="mt-1 flex flex-col sm:flex-row sm:flex-wrap sm:mt-0 sm:space-x-6">
                         {meta}
                     </div>

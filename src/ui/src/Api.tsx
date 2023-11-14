@@ -22,16 +22,61 @@ export type SortOrder =
   | "Descending"
   | "None"
 
-export type Field = {
+export type InFieldOptions
+  = { "tag": "nominal"; filter: GenericNoFilter }
+  | { "tag": "ordinal"; filter: GenericNoFilter }
+  | { "tag": "quantitative"; filter: GenericNoFilter }
+  | { "tag": "temporal-abs"; filter: GenericNoFilter }
+  | { "tag": "temporal-rel"; filter: GenericNoFilter }
+
+export type InField = {
+  sql_field_name: string;
+  display_name: string;
+  field_options: InFieldOptions;
+  sort_order: SortOrder;
+}
+
+export type NominalOutFilter
+  = { tag: "list"; values: string[] }
+  | { tag: "NoFilter" }
+
+export type GenericNoFilter =
+  { tag: "NoFilter" }
+
+export type OutFieldOptions
+  = { tag: "nominal"; filter: NominalOutFilter }
+  | { tag: "ordinal"; filter: GenericNoFilter }
+  | { tag: "quantitative"; filter: GenericNoFilter }
+  | { tag: "temporal-abs"; filter: GenericNoFilter }
+  | { tag: "temporal-rel"; filter: GenericNoFilter }
+
+export type OutField = {
+  sql_field_name: string;
+  display_name?: string;
+  field_options: OutFieldOptions;
+  sort_order: SortOrder;
+};
+
+function mkInField(outField: OutField): InField {
+  return { sql_field_name: outField.sql_field_name
+         , display_name: outField.display_name ? outField.display_name : outField.sql_field_name
+         , field_options: { tag: outField.field_options.tag, filter: { tag: "NoFilter"}}
+         , sort_order: outField.sort_order
+        }
+}
+
+export type FieldGroup = {
   name: string;
-  fieldType: Measurement;
-  sortOrder: SortOrder;
+  description?: string;
+  primary_field: OutField;
+  other_fields: OutField[];
 }
 
 export type Cube = {
-  cQuery: QueryHash;
-  cTitle: string;
-  cFields: Field[];
+  query: QueryHash;
+  name: string;
+  display_name: string;
+  fields: FieldGroup[];
 }
 
 export type Archetype =
@@ -47,7 +92,7 @@ export type Visualisation = {
   visDescription: string;
   visScore: number;
   visArchetype: Archetype;
-  visFields: Field[];
+  visFields: InField[];
   visQuery: QueryHash;
 }
 
@@ -76,18 +121,18 @@ const cube: (v: CubeHash) => Observable<Cube> = (v: string) =>
       shareReplay(1)
     )
 
-const vis: (args: {q: QueryHash, selections: Selections<Field>}) => Observable<Visualisation[]> = ({q, selections}) =>
+const vis: (args: {q: QueryHash, selections: Selections<InField>}) => Observable<WithHash<Visualisation>[]> = ({q, selections}) =>
   fromFetch(new Request("/api/vis/"+q, { method: "POST", body: JSON.stringify(selections), headers: { "content-type": "application/json" } }))
     .pipe(
-      mergeMap(val => val.json().then(vl => vl as Visualisation[])),
+      mergeMap(val => val.json().then(vl => vl as WithHash<Visualisation>[])),
       shareReplay(1)
     )
 
-const evl: (arg: {q: QueryHash, fields: Field[] }) => Observable<any[]> = ({q, fields}) =>
+const evl: (arg: {q: QueryHash, fields: InField[] }) => Observable<any[]> = ({q, fields}) =>
   fromFetch(new Request("/api/eval/"+q, { method: "POST", body: JSON.stringify(fields), headers: { "content-type": "application/json" } }))
     .pipe(
       mergeMap(val => val.json().then(vl => vl as any[])),
       shareReplay(1)
     )
 
-export default { cubes, cube, vis, evl }
+export default { cubes, cube, vis, evl, mkInField }

@@ -32,6 +32,8 @@ defaultTypeEnv =
         -- "=" is overloaded (not polymorphic) but it should be ok to treat it like
         -- a polymorphic function here
         , let v = TpVar 0 in (AnOperator [Name Nothing "="], TyScheme [0] (TpArr v (TpArr v (TpSql STBool))))
+
+        , binOp "strftime" STText STDateTime STText
         ]
 
 binOp :: String -> SqlType -> SqlType -> SqlType -> (SqlVar, (TyScheme v (Tp v)))

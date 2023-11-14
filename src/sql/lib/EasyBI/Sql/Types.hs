@@ -85,7 +85,7 @@ rowFromSchema elms customTypes =
           in case Map.lookup nm' customTypes of
               Nothing  -> Just (nm, tp)
               Just tp' -> Just (nm, TpSql tp')
-        _                                          -> Nothing
+        _ -> Nothing
       rowTp = RowType (TpVar rowVar) (Map.fromList elements)
   in TyScheme [rowVar] (TpRow rowTp)
 
