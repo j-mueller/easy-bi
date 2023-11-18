@@ -106,6 +106,7 @@ fields mp = mapMaybe (fmap (uncurry mkField . first getName) . traverse getMeasu
     STText     -> Just (SomeMeasurement ANominalMeasurement)
     STBool     -> Just (SomeMeasurement ANominalMeasurement)
     STDateTime -> Just (SomeMeasurement ATemporalAbsMeasurement)
+    STTemporal -> Just (SomeMeasurement ATemporalRelMeasurement)
     _          -> Nothing
   getMeasure _ = Nothing
 
@@ -220,7 +221,7 @@ instance FromJSON SomeMeasurement where
     "ordinal"      -> pure (SomeMeasurement AnOrdinalMeasurement)
     "quantitative" -> pure (SomeMeasurement AQuantitativeMeasurement)
     "temporal-abs" -> pure (SomeMeasurement ATemporalAbsMeasurement)
-    "temporal-rel" -> pure (SomeMeasurement ATemporalAbsMeasurement)
+    "temporal-rel" -> pure (SomeMeasurement ATemporalRelMeasurement)
     vl             -> unexpected (String vl)
 
 toMeasurement :: SomeMeasurement -> Measurement
@@ -243,6 +244,7 @@ data Filter mode (measure :: Measurement) where
   NominalList    :: [String] -> Filter Out Nominal
   NominalInclude :: [String] -> Filter In  Nominal
   NominalExclude :: [String] -> Filter In  Nominal
+  NominalTopN    :: Int      -> Filter mode Nominal
   NoFilter :: Filter mode measure
 
 instance ToJSON (Filter mode measurement) where
@@ -250,13 +252,15 @@ instance ToJSON (Filter mode measurement) where
     NominalList as    -> object ["tag" .= ("list" :: String), "values" .= as]
     NominalInclude as -> object ["tag" .= ("include" :: String), "values" .= as]
     NominalExclude as -> object ["tag" .= ("exclude" :: String), "values" .= as]
+    NominalTopN n     -> object ["tag" .= ("top-n" :: String), "n" .= n]
     NoFilter          -> object ["tag" .= ("NoFilter" :: String)]
 
 instance Show (Filter mode measure) where
   show = \case
     NominalList as    -> "NominalList " <> show as
     NominalInclude as -> "NominalInclude " <> show as
-    NominalExclude as -> "NominalExclude"  <> show as
+    NominalExclude as -> "NominalExclude "  <> show as
+    NominalTopN n     -> "NominalTopN " <> show n
     NoFilter          -> "NoFilter"
 
 instance Eq (Filter In Nominal) where
@@ -284,9 +288,14 @@ instance Eq (Filter In TemporalRel) where
 instance Eq (Filter Out Nominal) where
   l == r = case (l, r) of
     (NominalList as, NominalList bs) -> as == bs
+    (NominalTopN n, NominalTopN k)   -> n == k
     (NoFilter, NoFilter)             -> True
     (NoFilter, NominalList _)        -> False
     (NominalList _, NoFilter)        -> False
+    (NoFilter, NominalTopN _)        -> False
+    (NominalList _, NominalTopN _)   -> False
+    (NominalTopN _, NoFilter)        -> False
+    (NominalTopN _, NominalList _)   -> False
 
 instance Eq (Filter Out Ordinal) where
   l == r = case (l, r) of
@@ -310,6 +319,7 @@ instance FromJSON (Filter In Nominal) where
     case tg of
       "include"  -> NominalInclude <$> obj .: "values"
       "exclude"  -> NominalExclude <$> obj .: "values"
+      "top-n"    -> NominalTopN <$> obj .: "n"
       "NoFilter" -> pure NoFilter
       x          -> fail ("Unexpected tag: " <> x)
 

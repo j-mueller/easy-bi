@@ -109,7 +109,7 @@ mkMeasurement = \case
   Nominal      -> VL.Nominal
   Ordinal      -> VL.Ordinal
   Quantitative -> VL.Quantitative
-  TemporalRel  -> VL.Quantitative
+  TemporalRel  -> VL.Nominal
   TemporalAbs  -> VL.Temporal
 
 mkMark :: Mark -> VL.Mark

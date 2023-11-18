@@ -32,31 +32,35 @@ module EasyBI.Server.Eval
   , where_
   ) where
 
-import Control.Exception              (bracket)
-import Control.Lens                   (Prism', makeLenses, preview, prism',
-                                       review, (%=), (&), (.~))
-import Control.Monad.Except           (MonadError (..))
-import Control.Monad.State            (execStateT)
-import Data.Foldable                  (traverse_)
-import Data.Map                       (Map)
-import Data.Map                       qualified as Map
-import Data.Pool                      (Pool)
-import Data.Pool                      qualified as Pool
-import Data.String                    (IsString (..))
-import Database.SQLite.Simple         qualified as Sqlite
-import EasyBI.Server.Visualisation    (AMeasurement (..), FieldInMode (..),
-                                       InOut (..), MeasurementAndField (..),
-                                       SortOrder (..), SqlFieldName (..),
-                                       fromSqlName)
-import EasyBI.Util.JSON               (WrappedObject (..))
-import Language.SQL.SimpleSQL.Dialect qualified as Dialect
-import Language.SQL.SimpleSQL.Pretty  qualified as Pretty
-import Language.SQL.SimpleSQL.Syntax  (Alias (..), Direction (..),
-                                       GroupingExpr (..), Name (..),
-                                       NullsOrder (..), QueryExpr (..),
-                                       ScalarExpr (App, BinOp, Iden, Star, StringLit),
-                                       SetQuantifier, SortSpec (..),
-                                       TableRef (..), makeSelect)
+import Control.Exception             (bracket)
+import Control.Lens                  (Prism', makeLenses, makeLensesFor,
+                                      preview, prism', review, (%=), (&), (.~),
+                                      (?~))
+import Control.Monad.Except          (MonadError (..))
+import Control.Monad.Reader          (MonadReader (..), runReaderT)
+import Control.Monad.State           (MonadState, execStateT, gets)
+import Data.Bifunctor                (Bifunctor (..))
+import Data.Foldable                 (traverse_)
+import Data.Map                      (Map)
+import Data.Map                      qualified as Map
+import Data.Pool                     (Pool)
+import Data.Pool                     qualified as Pool
+import Data.String                   (IsString (..))
+import Database.SQLite.Simple        qualified as Sqlite
+import EasyBI.Server.Visualisation   (AMeasurement (..), FieldInMode (..),
+                                      Filter (..), InOut (..),
+                                      MeasurementAndField (..), SortOrder (..),
+                                      SqlFieldName (..), fromSqlName)
+import EasyBI.Sql.Dialect            qualified as Dialect
+import EasyBI.Util.JSON              (WrappedObject (..))
+import Language.SQL.SimpleSQL.Pretty qualified as Pretty
+import Language.SQL.SimpleSQL.Syntax (Alias (..), Direction (..),
+                                      GroupingExpr (..), Name (..),
+                                      NullsOrder (..), QueryExpr (..),
+                                      ScalarExpr (App, BinOp, Iden, Star, StringLit),
+                                      SetQuantifier, SortSpec (..),
+                                      TableRef (..), makeSelect)
+import Language.SQL.SimpleSQL.Syntax qualified as SQL
 
 data DbBackend
   = SqliteBackend{ sqliteFile :: FilePath }
@@ -121,11 +125,11 @@ evalQueryDebug dbg dbBackend query =
   withConnection dbBackend
     (evalQuerySQLite dbg query)
 
-{-| Evaluate a query pn a SQLite database, returning a list of JSON objects
+{-| Evaluate a query on a SQLite database, returning a list of JSON objects
 -}
 evalQuerySQLite :: (String -> IO ()) -> QueryExpr -> Sqlite.Connection -> IO [WrappedObject]
 evalQuerySQLite dbg (asJSONRowsSqlite -> query) connection = do
-  let qry = Pretty.prettyQueryExpr Dialect.postgres query
+  let qry = Pretty.prettyQueryExpr Dialect.sqlite query
   dbg qry
   fmap Sqlite.fromOnly <$> Sqlite.query_ connection (fromString qry)
 
@@ -216,19 +220,85 @@ asJSONRowsPostgres e =
             }
       }
 
+data BuildQueryState =
+  BuildQueryState
+    { qsSelect         :: SelectQuery
+    , qsWith           :: [(Alias, SelectQuery)]
+    , qsOriginalSelect :: SelectQuery
+    }
+
+buildQueryState :: SelectQuery -> BuildQueryState
+buildQueryState s = BuildQueryState s [] s
+
+mkQuery :: BuildQueryState -> QueryExpr
+mkQuery BuildQueryState{qsSelect, qsWith} =
+  case qsWith of
+    [] -> review _Select qsSelect
+    xs ->
+      With
+        { qeWithRecursive = False
+        , qeViews = fmap (second (review _Select)) xs
+        , qeQueryExpression = review _Select qsSelect
+        }
+
+makeLensesFor
+  [ ("qsSelect", "selectQuery")
+  -- , ("qsWith", "withQueries")
+  ] ''BuildQueryState
+
+{-| Get an alias that can be used in a 'with' statement
+-}
+-- freshAlias :: MonadState BuildQueryState m => m (Alias, Name)
+-- freshAlias = do
+--   l <- gets (length . qsWith)
+--   let nm = Name Nothing ("view_" <> show l)
+--   pure (Alias nm Nothing, nm)
+
+{-| Add a scalar expression to a filter statement.
+-}
+addFilter :: ScalarExpr -> Maybe ScalarExpr -> ScalarExpr
+addFilter flt = \case
+  Nothing       -> flt
+  Just otherFlt -> BinOp flt [Name Nothing "AND"] otherFlt
+
+{-| Add a single @FieldInMode@ to the query by
+1. Adding the field's definition to the SELECT list
+2. Adding a GROUP BY clause for non-quantitative fields
+3. Adding a view with alias if a filter has been specified for the field
+-}
+addFieldToQuery :: (MonadReader (Map SqlFieldName (ScalarExpr, Name)) m, MonadError QueryBuildError m, MonadState BuildQueryState m) => FieldInMode In -> m ()
+addFieldToQuery FieldInMode{sqlFieldName, sortOrder, fieldOptions=MeasurementAndField{mFieldType, mFilter}} = do
+  defs <- ask
+  (scalarExpr, fieldName) <- maybe (throwError $ FieldNotFound sqlFieldName) pure (Map.lookup sqlFieldName defs)
+  selectQuery . selectList_ %= (:) (scalarExpr, Just fieldName)
+  traverse_ (\o -> selectQuery . orderBy %= (:) (SortSpec scalarExpr o NullsOrderDefault)) (mapDir sortOrder)
+  case mFieldType of
+    AQuantitativeMeasurement -> pure ()
+    _                        -> selectQuery . groupBy %= (:) (SimpleGroup scalarExpr)
+  case mFilter of
+    NominalTopN n -> do
+      -- (alias, name) <- freshAlias
+      orig <- gets qsOriginalSelect
+      let limitQry = orig
+                      & groupBy .~ [SimpleGroup scalarExpr]
+                      & orderBy .~ [SortSpec (SQL.App [Name Nothing "COUNT"] [SQL.Star]) SQL.Desc SQL.NullsOrderDefault]
+                      & fetchFirst ?~ SQL.NumLit (show n)
+                      & selectList_ .~ [(scalarExpr, Nothing)]
+      let stmt = SQL.In True scalarExpr (SQL.InQueryExpr $ review _Select limitQry)
+      selectQuery . where_ %= Just . addFilter stmt
+      -- withQueries %= (:) (alias, limitQry)
+    _             -> do
+      -- In Bool ScalarExpr InPredValue
+      pure () -- FIXME: NominalInclude, NominalExclude
+
 {-| Build the query by inserting the given field definitions into the
 original SQL query
 -}
 applyFieldModifiers :: MonadError QueryBuildError m => [FieldInMode In] -> QueryExpr -> m QueryExpr
 applyFieldModifiers fields (preview _Select -> Just k) = do
   defs <- fieldDefinitions k
-  fmap (review _Select) $ flip execStateT (k & selectList_ .~ mempty & groupBy .~ mempty) $ flip traverse fields $ \FieldInMode{sqlFieldName, sortOrder, fieldOptions=MeasurementAndField{mFieldType}} -> do
-    (scalarExpr, fieldName) <- maybe (throwError $ FieldNotFound sqlFieldName) pure (Map.lookup sqlFieldName defs)
-    selectList_ %= (:) (scalarExpr, Just fieldName)
-    traverse_ (\o -> orderBy %= (:) (SortSpec scalarExpr o NullsOrderDefault)) (mapDir sortOrder)
-    case mFieldType of
-      AQuantitativeMeasurement -> pure ()
-      _                        -> groupBy %= (:) (SimpleGroup scalarExpr)
+  let initialQ = k & selectList_ .~ mempty & groupBy .~ mempty
+  fmap mkQuery $ flip runReaderT defs $ flip execStateT (buildQueryState initialQ) $ flip traverse fields addFieldToQuery
 applyFieldModifiers _ _ = throwError UnexpectedQueryType
 
 mapDir :: SortOrder -> Maybe Direction

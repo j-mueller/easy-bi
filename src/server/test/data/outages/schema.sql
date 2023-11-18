@@ -31,6 +31,8 @@ CREATE VIEW "outages" AS
     SELECT
         strftime('%d', outage_entries.entrydate_start) as outage_day_of_month
         , strftime('%m', outage_entries.entrydate_start) as outage_month
+        , strftime('%H', outage_entries.entrydate_start) as outage_hour
+        , date(outage_entries.entrydate_start) as outage_date
         , outage_entries.entryoperator_name as operator
         , outage_entries.entrycity as city
         , SUM(outage_entries.entry_duration_minutes) as duration_sum

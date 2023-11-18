@@ -93,13 +93,15 @@ checkType db (TyScheme _ tyScheme) =
             , ("totalSales", C.number)
             ]
         Outages ->
-          C.row 29
+          C.row 39
             [ ("city", C.text)
             , ("count", C.number)
             , ("duration_avg", C.number)
             , ("duration_sum", C.number)
             , ("operator", C.text)
-            , ("outage_day_of_month", C.text)
-            , ("outage_month", C.text)
+            , ("outage_date", C.datetime)
+            , ("outage_day_of_month", C.temporal)
+            , ("outage_hour", C.temporal)
+            , ("outage_month", C.temporal)
             ]
   in assertEqual "schema" expected tyScheme

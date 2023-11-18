@@ -7,6 +7,10 @@ outages:
     other_fields:
       - field_name: outage_month
         display_name: "Month"
+      - field_name: outage_date
+        display_name: "Date"
+      - field_name: outage_hour
+        display_name: "Hour of day"
   - name: Operator
     description: "Operator that reported the outage"
     primary_field:
@@ -26,10 +30,10 @@ outages:
     description: "Duration of the outage"
     primary_field:
       field_name: duration_sum
-      display_name: "Duration (sum)"
+      display_name: "Sum of duration"
       description: "Total duration in minutes"
     other_fields:
       - field_name: duration_avg
-        display_name: "Duration (avg)"
+        display_name: "Average of duration"
         description: "Average duration in minutes"
 

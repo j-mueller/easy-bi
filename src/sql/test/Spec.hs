@@ -14,10 +14,11 @@ import Data.Map.Strict                qualified as Map
 import Data.Maybe                     (listToMaybe)
 import Data.Proxy                     (Proxy (..))
 import EasyBI.Sql.Catalog             qualified as Catalog
-import EasyBI.Sql.Class               (SqlFragment (..), postgres, runInferType,
+import EasyBI.Sql.Class               (SqlFragment (..), runInferType,
                                        typeConstraints)
 import EasyBI.Sql.Construct           (boolean, datetime, dot, hostParameter,
-                                       int, number, row, text)
+                                       number, row, temporal, text)
+import EasyBI.Sql.Dialect             (sqlite)
 import EasyBI.Sql.Effects.Types       (Tp (..), TyScheme (..))
 import EasyBI.Sql.Types               (AnnotateErr, InferError (..),
                                        SqlType (..), SqlVar (..), TyVar (..),
@@ -42,7 +43,7 @@ query :: Proxy QueryExpr
 query = Proxy
 
 testDialect :: Dialect
-testDialect = postgres
+testDialect = sqlite
 
 tests :: TestTree
 tests = testGroup "type inference"
@@ -79,12 +80,14 @@ tests = testGroup "type inference"
 
       , testGroup "catalog"
         [ testCaseSteps "simple catalog" (catalogSuccess (row 4 [("country", number)]) "CREATE TABLE sales (COUNTRY integer); CREATE VIEW v AS select sales.COUNTRY as country from sales")
-        , testCaseSteps "date" (catalogSuccess (row 5 [("date_day", text)]) "CREATE TABLE sales (DAT TIMESTAMP WITH TIME ZONE); CREATE VIEW v AS select strftime('%d', sales.DAT) as date_day")
+        , testCaseSteps "date" (catalogSuccess (row 5 [("date_day", temporal)]) "CREATE TABLE sales (DAT TIMESTAMP WITH TIME ZONE); CREATE VIEW v AS select strftime('%d', sales.DAT) as date_day")
         , testCaseSteps "VARCHAR NOT NULL" (catalogSuccess (row 4 [("date_day", text)]) "CREATE TABLE sales (dat VARCHAR NOT NULL); CREATE VIEW v AS select sales.dat as date_day")
         , testCaseSteps "TIMESTAMP WITH TIME ZONE NOT NULL" (catalogSuccess (row 4 [("date_day", datetime)]) "CREATE TABLE sales (dat TIMESTAMP WITH TIME ZONE NOT NULL); CREATE VIEW v AS select sales.dat as date_day")
         , testCaseSteps "DOUBLE PRECISION" (catalogSuccess (row 4 [("date_day", number)]) "CREATE TABLE sales (dat DOUBLE PRECISION); CREATE VIEW v AS select sales.dat as date_day")
         , testCaseSteps "INTEGER NOT NULL" (catalogSuccess (row 4 [("date_day", number)]) "CREATE TABLE sales (dat INTEGER NOT NULL); CREATE VIEW v AS select sales.dat as date_day")
         , testCaseSteps "BOOLEAN NOT NULL" (catalogSuccess (row 4 [("date_day", boolean)]) "CREATE TABLE sales (dat BOOLEAN NOT NULL); CREATE VIEW v AS select sales.dat as date_day")
+        , testCaseSteps "DATE" (catalogSuccess (row 5 [("date_day", datetime)]) "CREATE TABLE sales (dat TIMESTAMP WITH TIME ZONE NOT NULL); CREATE VIEW v AS select date(sales.dat) as date_day")
+        , testCaseSteps "TIME" (catalogSuccess (row 5 [("date_day", datetime)]) "CREATE TABLE sales (dat TIMESTAMP WITH TIME ZONE NOT NULL); CREATE VIEW v AS select time(sales.dat) as date_day")
         ]
       ]
   ]
