@@ -162,7 +162,7 @@ const ChartTypeSelection: React.FC<{ changes: Subject<Change<Selections<InField>
           </div>
 }
 
-const emptySelections: Selections<InField> = { _WildCards: [], _Color: [], _selectedArchetype: [], _selectedMark: [], _XAxis: [], _YAxis: [] }
+const emptySelections: Selections<InField> = { _WildCards: [], _Color: [], _selectedArchetype: [], _selectedMark: [], _XAxis: [], _YAxis: [], _YAxis2: [] }
 
 const _WildCardsL: Lens<Selections<InField>, InField[]> = Lens.fromProp<Selections<InField>>()('_WildCards');
 const _ArchetypeL: Lens<Selections<InField>, Archetype[]> = Lens.fromProp<Selections<InField>>()('_selectedArchetype')

@@ -45,6 +45,7 @@ checkVisualisations step = do
           { _WildCards = [category, price]
           , _XAxis     = []
           , _YAxis     = []
+          , _YAxis2    = []
           , _Color     = []
           , _selectedMark = []
           , _selectedArchetype = []

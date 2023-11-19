@@ -19,27 +19,13 @@
 {-# LANGUAGE UndecidableInstances   #-}
 
 module EasyBI.Vis.Types
-  ( Encoding (..)
-  , Mark (..)
+  ( Mark (..)
   , Measurement (..)
-  , PositionChannel (..)
-  , Scale (..)
-  , ScaleTp (..)
-  , archetype
-  , colorChannel
-  , emptyEncoding
-  , field
-  , fieldPositionChannel
-  , markChannel
-  , positionX
-  , positionY
-  , scale
-  , scaleTp
-  , title
     -- * Relations
   , Relation (..)
     -- * Archetypes
   , Archetype (..)
+  , archetype
     -- * User selections
   , Selections (..)
   , color
@@ -50,27 +36,21 @@ module EasyBI.Vis.Types
   , wildCards
   , xAxis
   , yAxis
+  , yAxis2
     -- * Rules
   , Rule
   , runRule
-    -- * Scoring
-  , Score (..)
-  , score
   ) where
 
 import Codec.Serialise           (Serialise)
-import Control.Lens              (makeFields, makeLenses, (^.))
-import Control.Monad             (guard)
+import Control.Lens              (makeLenses)
 import Control.Monad.Logic       qualified as LogicT
 import Control.Monad.Logic.Class (MonadLogic)
-import Control.Monad.State       (MonadState, execStateT)
+import Control.Monad.Reader      (MonadReader, runReaderT)
 import Data.Aeson                (FromJSON, ToJSON)
-import Data.Foldable             (traverse_)
-import Data.List                 (nub)
-import Data.Maybe                (isJust)
-import Data.Semigroup            (Sum (..))
 import Data.Text                 (Text)
-import EasyBI.Vis.Utils          (chooseSubList, setOrFail')
+import EasyBI.Vis.Charts         (Chart)
+import EasyBI.Vis.Charts         qualified as Charts
 import GHC.Generics              (Generic)
 
 {-| Class of relations between fields (from the Mackinlay paper)
@@ -93,35 +73,9 @@ data Measurement
   deriving stock (Eq, Ord, Show, Generic)
   deriving anyclass (ToJSON, FromJSON, Serialise)
 
-{-| Scales available in HVega.
--}
-data ScaleTp = SLinear | SLog | SPow | STime | SUtc | SQuantile | SOrdinal
-  deriving stock (Eq, Ord, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON, Serialise)
-
-data Scale =
-  Scale
-    { _scaleTp :: Maybe ScaleTp
-    } deriving stock (Eq, Ord, Show, Generic)
-      deriving anyclass (ToJSON, FromJSON, Serialise)
-
-emptyScale :: Scale
-emptyScale = Scale Nothing
-
 data Mark = Bar | Point | Line | Rect
-  deriving stock (Eq, Ord, Show, Generic)
+  deriving stock (Eq, Ord, Show, Generic, Enum, Bounded)
   deriving anyclass (ToJSON, FromJSON, Serialise)
-
-data PositionChannel f
-  = PositionChannel
-      { _positionChannelField :: f
-      , _positionChannelTitle :: Text
-      , _positionChannelScale :: Scale
-      } deriving (Eq, Ord, Show, Functor, Foldable, Traversable, Generic)
-        deriving anyclass (ToJSON, FromJSON, Serialise)
-
-fieldPositionChannel :: Relation f => f -> PositionChannel f
-fieldPositionChannel f = PositionChannel f (fieldLabel f) emptyScale
 
 {-| Visualisation archetype. This is only used for UX purposes
 (showing a symbol to the user)
@@ -133,51 +87,8 @@ data Archetype =
   | Scatterplot
   | Heatmap
   | Misc
-  deriving stock (Eq, Ord, Show, Generic)
+  deriving stock (Eq, Ord, Show, Generic, Enum, Bounded)
   deriving anyclass (ToJSON, FromJSON, Serialise)
-
--- | Specifies how a relation is displayed in graph
-data Encoding f
-  = Encoding
-      { _positionX    :: Maybe (PositionChannel f),
-        _positionY    :: Maybe (PositionChannel f),
-        _colorChannel :: Maybe f,
-        _markChannel  :: Maybe Mark,
-        _archetype    :: Maybe Archetype
-      } deriving stock (Eq, Ord, Show, Functor, Foldable, Traversable, Generic)
-
-instance (ToJSON (PositionChannel f), ToJSON f) => ToJSON (Encoding f)
-instance (FromJSON (PositionChannel f), FromJSON f) => FromJSON (Encoding f)
-instance (Serialise f) => Serialise (Encoding f)
-
-{-| Ranking of an encoding
--}
-newtype Score = Score{unScore :: Double }
-  deriving newtype (Num, Eq, Ord, ToJSON, FromJSON, Serialise)
-  deriving stock (Show)
-  deriving (Semigroup, Monoid) via (Sum Double)
-
-{-| How "good" (informative) is the encoding?
--}
-score :: Encoding f -> Maybe Score
-score Encoding{_positionX, _positionY, _colorChannel, _markChannel} = do
-  let definedScore :: Maybe a -> Score
-      definedScore = maybe 0 (const 1)
-
-      defScores = definedScore _positionX <> definedScore _positionY <> definedScore _colorChannel <> definedScore _markChannel
-
-  guard (isJust _positionX || isJust _positionY)
-  pure defScores
-
-emptyEncoding :: Encoding f
-emptyEncoding =
-  Encoding
-    { _positionX = Nothing
-    , _positionY = Nothing
-    , _colorChannel = Nothing
-    , _markChannel = Nothing
-    , _archetype = Nothing
-    }
 
 -- | Data submitted by the user
 data Selections k f =
@@ -185,6 +96,7 @@ data Selections k f =
     { _WildCards         :: [f]
     , _XAxis             :: k f
     , _YAxis             :: k f
+    , _YAxis2            :: k f
     , _Color             :: k f
     , _selectedMark      :: k Mark
     , _selectedArchetype :: k Archetype
@@ -197,6 +109,15 @@ deriving instance (ToJSON f, ToJSON (k f), ToJSON (k Mark), ToJSON (k Archetype)
 deriving instance (FromJSON f, FromJSON (k f), FromJSON (k Mark), FromJSON (k Archetype)) => FromJSON (Selections k f)
 
 deriving instance Show f => Show (Selections [] f)
+deriving instance Show f => Show (Selections Maybe f)
+
+instance Foldable k => Foldable (Selections k) where
+  foldMap f selections =
+    foldMap f (_WildCards selections)
+    <> foldMap f (_XAxis selections)
+    <> foldMap f (_YAxis selections)
+    <> foldMap f (_YAxis2 selections)
+    <> foldMap f (_Color selections)
 
 {-| Turn a 'Selections []' object, with possible choices for
 specific channels, into a 'Selections Maybe' object, in which
@@ -210,6 +131,7 @@ initialSelections sel = do
       maybeList xs = Just <$> xs
   xAxis <- maybeList (_XAxis sel)
   yAxis <- maybeList (_YAxis sel)
+  yAxis2 <- maybeList (_YAxis2 sel)
   color <- maybeList (_Color sel)
   mk <- maybeList (_selectedMark sel)
   archetype <- maybeList (_selectedArchetype sel)
@@ -218,49 +140,29 @@ initialSelections sel = do
       { _WildCards = _WildCards sel
       , _XAxis = xAxis
       , _YAxis = yAxis
+      , _YAxis2 = yAxis2
       , _Color = color
       , _selectedMark = mk
       , _selectedArchetype = archetype
       }
 
 emptySelections :: Selections Maybe f
-emptySelections = Selections [] Nothing Nothing Nothing Nothing Nothing
+emptySelections = Selections [] Nothing Nothing Nothing Nothing Nothing Nothing
 
-makeLenses ''Encoding
-makeFields ''PositionChannel
-makeLenses ''Scale
 makeLenses ''Selections
 
-{-| Rules for visualisations.
-The input is a list of available dimensions (that have not been assigned to
-a channel yet).
-The rule then takes one or more of those dimensions, assigns them to channels,
-and returns the remaining dimensions (if any).
-The type parameter @f@ is the type of columns in the data source
--}
-type Rule f = forall m. (MonadLogic m, MonadState (Encoding f) m) => [f] -> m [f]
+type Rule f = forall m. (MonadLogic m, MonadReader (Selections Maybe f) m) => m (Chart f)
 
-{-| Initialise the state with selections from the user
+{-| Find all charts that match the selections
 -}
-selectedDimensions :: forall m f. (Relation f, MonadLogic m, Eq f, MonadState (Encoding f) m) => Selections Maybe f -> m [f]
-selectedDimensions s = do
-  (wcs, _) <- chooseSubList 3 (s ^. wildCards)
-  x' <- case s ^. xAxis of
-    Nothing -> pure []
-    Just a  -> setOrFail' positionX (fieldPositionChannel a) *> pure [a]
-  y' <- case s ^. yAxis of
-    Nothing -> pure []
-    Just a  -> setOrFail' positionY (fieldPositionChannel a) *> pure [a]
-  col <- case s ^. color of
-    Nothing -> pure []
-    Just c  -> setOrFail' colorChannel c *> pure [c]
-  traverse_ (setOrFail' markChannel) (s ^. selectedMark)
-  traverse_ (setOrFail' archetype) (s ^. selectedArchetype)
-  pure $ nub $ wcs ++ x' ++ y' ++ col
+runRule :: Int -> Rule f -> Selections Maybe f -> [Chart f]
+runRule n rule s = LogicT.observeMany n (runReaderT rule s)
 
-{-
--}
-runRule :: forall f. (Relation f, Eq f) => Int -> Rule f -> Selections Maybe f -> [Encoding f]
-runRule n rule s =
-  let rule' = selectedDimensions s >>= rule >>= guard . null
-  in LogicT.observeMany n (execStateT rule' emptyEncoding)
+archetype :: Chart f -> Archetype
+archetype = \case
+  Charts.VerticalBarChart{}   -> VerticalBarChart
+  Charts.HorizontalBarChart{} -> HorizontalBarChart
+  Charts.Scatterplot{}        -> Scatterplot
+  Charts.LineChart{}          -> Linechart
+  Charts.LineChart2Axis{}     -> Linechart
+  Charts.Heatmap{}            -> Heatmap
