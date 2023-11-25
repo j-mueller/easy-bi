@@ -97,8 +97,8 @@ horizontalBarChart :: forall f m. (Relation f, MonadLogic m, MonadReader (Select
 horizontalBarChart = do
   checkMark Bar
   checkArchetype HorizontalBarChart
-  (hbcXAxis, rest) <- asks _WildCards >>= checkXAxisOrChoose (isBarChartDim . measurement)
-  (hbcYAxis, rest') <- checkYAxisOrChoose (isQuantitative . measurement) rest
+  (hbcYAxis, rest) <- asks _WildCards >>= checkXAxisOrChoose (isBarChartDim . measurement)
+  (hbcXAxis, rest') <- checkXAxisOrChoose (isQuantitative . measurement) rest
   (hbcColor, _) <- chooseColor (isBarChartDim . measurement) rest'
   pure HorizontalBarChartSpec{hbcXAxis, hbcYAxis, hbcColor}
 
@@ -106,8 +106,8 @@ verticalBarChart :: forall f m. (Relation f, MonadLogic m, MonadReader (Selectio
 verticalBarChart = do
   checkMark Bar
   checkArchetype VerticalBarChart
-  (vbcYAxis, rest) <- asks _WildCards >>= checkYAxisOrChoose (isBarChartDim . measurement)
-  (vbcXAxis, rest') <- checkXAxisOrChoose (isQuantitative . measurement) rest
+  (vbcXAxis, rest) <- asks _WildCards >>= checkYAxisOrChoose (isBarChartDim . measurement)
+  (vbcYAxis, rest') <- checkYAxisOrChoose (isQuantitative . measurement) rest
   (vbcColor, _) <- chooseColor (isBarChartDim . measurement) rest'
   pure VerticalBarChartSpec{vbcYAxis, vbcXAxis, vbcColor}
 

@@ -29,7 +29,7 @@ import EasyBI.Server.Visualisation   (FieldInMode (..), InOut (..),
 import EasyBI.Sql.Catalog            (Catalog (..), TypedQueryExpr (..))
 import EasyBI.Sql.Effects.Types      (RowType (..), Tp (..), TyScheme (..))
 import EasyBI.Util.JSON              (customJsonOptions)
-import EasyBI.Util.NiceHash          (Plain, hPlain)
+import EasyBI.Util.NiceHash          (Plain, hPlain, withHash)
 import GHC.Generics                  (Generic)
 import Language.SQL.SimpleSQL.Syntax (Name (..))
 
@@ -113,6 +113,6 @@ cubesFromCatalog Catalog{_views} DataSourceConfig{dscFieldGroups} = do
           <$> pure (hPlain typedQueryExpr)
           <*> pure (Text.unpack viewName)
           <*> pure (Text.unpack viewName) -- FIXME:_ Display name in config
-          <*> configFieldGroups fields_ fieldGroups
+          <*> fmap (fmap withHash) (configFieldGroups fields_ fieldGroups)
 
   traverse (uncurry mkCube) (Map.toList dscFieldGroups)

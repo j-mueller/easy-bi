@@ -34,6 +34,9 @@
     "webpack-dev-server": "^4.11.1"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.1.0",
+    "@floating-ui/react": "^0.26.2",
+    "immutable": "^5.0.0-beta.4",
     "mini-css-extract-plugin": "^2.7.2",
     "monocle-ts": "^2.3.13",
     "react": "^18.2.0",

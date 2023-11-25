@@ -2,7 +2,7 @@ import React, { ReactNode, useEffect, useState } from "react";
 import Api, { WithHash, Cube } from "../Api";
 import { Link, Outlet, Route, Routes } from "react-router-dom";
 import Page from "./Page";
-import CubeComponent from "./Cube";
+import CubeComponent from "./NewCube";
 
 const CubeList: React.FC = () => {
     const [availableCubes, setAvailableCubes] = useState<WithHash<Cube>[]>([]);
