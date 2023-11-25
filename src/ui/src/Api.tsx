@@ -110,6 +110,7 @@ export type Selections<T> = {
   _WildCards: T[];
   _XAxis: T[];
   _YAxis: T[];
+  _YAxis2: T[];
   _Color: T[];
   _selectedMark: Mark[];
   _selectedArchetype: Archetype[];

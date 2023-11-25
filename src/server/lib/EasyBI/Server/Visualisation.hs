@@ -33,7 +33,7 @@ module EasyBI.Server.Visualisation
   ) where
 
 import Codec.Serialise               (Serialise (..))
-import Control.Lens                  (Lens', lens, over, view)
+import Control.Lens                  (Lens', lens, over)
 import Data.Aeson                    (FromJSON (..), ToJSON (..), object,
                                       withText, (.=))
 import Data.Aeson                    qualified as JSON
@@ -47,7 +47,7 @@ import Data.Functor                  (($>))
 import Data.List                     (sortOn)
 import Data.Map                      (Map)
 import Data.Map                      qualified as Map
-import Data.Maybe                    (fromMaybe, mapMaybe)
+import Data.Maybe                    (mapMaybe)
 import Data.Ord                      (Down (..))
 import Data.String                   (IsString (..))
 import Data.Text                     qualified as Text
@@ -57,14 +57,18 @@ import EasyBI.Util.JSON              (SerialiseViaJSON (..), WrappedObject (..),
                                       _WrappedObject, customJsonOptions,
                                       fromValue)
 import EasyBI.Util.NiceHash          (HasNiceHash (..), NiceHash)
+import EasyBI.Vis.Charts             (Chart)
 import EasyBI.Vis.HVega              qualified as HVega
 import EasyBI.Vis.Rules              (makeChart)
-import EasyBI.Vis.Types              (Archetype (Misc), Encoding,
-                                      Measurement (..), Relation (..),
-                                      Score (..), Selections, archetype,
-                                      initialSelections, runRule, score)
+import EasyBI.Vis.Types              (Archetype, Measurement (..),
+                                      Relation (..), Selections, archetype,
+                                      initialSelections, runRule)
 import GHC.Generics                  (Generic)
 import Language.SQL.SimpleSQL.Syntax qualified as Syntax
+
+newtype Score = Score Int
+  deriving stock (Generic, Show)
+  deriving newtype (ToJSON, FromJSON, Serialise, Ord, Eq)
 
 {-| Visualisation to be shown on the client
 -}
@@ -80,7 +84,7 @@ data Visualisation a =
     -- ^ Archetype of the visualisation
     , visFields      :: [FieldInMode In]
     -- ^ The fields used by this visualisation
-    , visEncoding    :: Encoding (FieldInMode In)
+    , visEncoding    :: Chart (FieldInMode In)
     , visQuery       :: a
     }
     deriving stock (Generic, Show)
@@ -91,8 +95,10 @@ instance HasNiceHash (Visualisation (NiceHash TypedQueryExpr)) where
 
 visualisations :: a -> Selections [] (FieldInMode In) -> [Visualisation a]
 visualisations hsh selections =
-  let addScore x = traverse score (x, x)
-      mkSel = take 10 . mapMaybe (uncurry (enc hsh)) . sortOn (Down . snd) . mapMaybe addScore . nubOrd . runRule 50 makeChart
+  let usesAllFields Visualisation{visFields} = length visFields == length selections
+      addScore x = traverse score (x, x)
+      score _ = pure (Score 10)
+      mkSel = take 10 . filter usesAllFields . mapMaybe (uncurry (enc hsh)) . sortOn (Down . snd) . mapMaybe addScore . nubOrd . runRule 50 makeChart
   in mconcat (mkSel <$> initialSelections selections)
 
 {-| The fields of a record
@@ -150,7 +156,7 @@ fields mp = mapMaybe (fmap (uncurry mkField . first getName) . traverse getMeasu
         , sortOrder = Ascending
         }
 
-enc :: a -> Encoding (FieldInMode In) -> Score -> Maybe (Visualisation a)
+enc :: a -> Chart (FieldInMode In) -> Score -> Maybe (Visualisation a)
 enc hsh e score_ =
   let setData = KM.insert "data" (object ["name" .= s "table"])
                 . KM.insert "width" (toJSON (s "container"))
@@ -159,7 +165,7 @@ enc hsh e score_ =
       <$> fmap (over _WrappedObject setData) (fromValue (HVega.toJSON e))
       <*> pure "FIXME: enc.visDescription"
       <*> pure score_
-      <*> pure (fromMaybe Misc (view archetype e))
+      <*> pure (archetype e)
       <*> pure (toList e)
       <*> pure e
       <*> pure hsh

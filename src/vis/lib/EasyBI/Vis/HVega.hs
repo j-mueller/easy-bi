@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE GADTs             #-}
 {-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE NamedFieldPuns    #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
 {-# LANGUAGE TypeApplications  #-}
@@ -15,94 +16,95 @@ module EasyBI.Vis.HVega
   , toJSON
   ) where
 
-import Control.Lens           (_Just, to, (^.), (^..))
-import Control.Monad.Writer   (MonadWriter, runWriter, runWriterT, tell)
 import Data.Aeson             qualified as JSON
-import Data.Foldable          (forM_, toList, traverse_)
-import Data.Sequence          (Seq)
-import Data.Sequence          qualified as Seq
 import Data.Text.Lazy         qualified as TL
-import EasyBI.Vis.Types       (Encoding, Mark (..), Measurement (..),
-                               PositionChannel, Relation (..), ScaleTp (..),
-                               colorChannel, field, fieldName, markChannel,
-                               measurement, positionX, positionY, scale,
-                               scaleTp, title)
+import EasyBI.Vis.Charts      (Chart (..), HeatmapSpec (..),
+                               HorizontalBarChartSpec (..), LineChartSpec (..),
+                               LineChartSpec2Axis (..), ScatterplotSpec (..),
+                               VerticalBarChartSpec (..))
+import EasyBI.Vis.Types       (Measurement (..), Relation (..), fieldName,
+                               measurement)
 import Graphics.Vega.VegaLite (BuildEncodingSpecs, Position (..), PropertySpec,
                                VegaLite)
 import Graphics.Vega.VegaLite qualified as VL
 
 {-| Convert an encoding to a 'VegaLite' specification
 -}
-vegaLite :: Relation f => Encoding f -> VegaLite
-vegaLite enc =
-  let (_, specs) = runWriter (writeSpecs enc)
-  in (VL.toVegaLite $ toList specs)
+vegaLite :: Relation f => Chart f -> VegaLite
+vegaLite = VL.toVegaLite . chartProperties
 
-toHtml :: Relation f => Encoding f -> TL.Text
+toHtml :: Relation f => Chart f -> TL.Text
 toHtml = VL.toHtml . vegaLite
 
-toHtmlFile :: (Relation f) => FilePath -> Encoding f -> IO ()
+toHtmlFile :: Relation f => FilePath -> Chart f -> IO ()
 toHtmlFile fp enc = VL.toHtmlFile fp (vegaLite enc)
 
-toJSON :: Relation f => Encoding f -> JSON.Value
+toJSON :: Relation f => Chart f -> JSON.Value
 toJSON = VL.fromVL . vegaLite
 
-writeSpecs ::
-  forall f m.
-  ( Relation f
-  , MonadWriter (Seq PropertySpec) m
-  ) =>
-  Encoding f ->
-  m ()
-writeSpecs enc = do
-  (_, encoding) <- runWriterT $ do
-    traverse_ (writePositionChannel X) (enc ^. positionX)
-    traverse_ (writePositionChannel Y) (enc ^. positionY)
-    writeColorChannel (enc ^. colorChannel)
-  tell $ Seq.singleton $ VL.encoding (encoding [])
-  writeMarkChannel (enc ^. markChannel)
+nominal :: Relation a => Position -> a -> BuildEncodingSpecs
+nominal p f = VL.position p [VL.PName (fieldName f), VL.PmType (mkMeasurement $ measurement f), VL.PTitle (fieldLabel f)]
 
-writePositionChannel ::
-  forall f m.
-  (Relation f, MonadWriter BuildEncodingSpecs m) =>
-  Position ->
-  PositionChannel f ->
-  m ()
-writePositionChannel pos ch =
-  tell $ VL.position pos $
-    (ch ^.. field . to fieldName . to VL.PName)
-      <> (ch ^.. field . to measurement . to mkMeasurement . to VL.PmType)
-      <> (ch ^.. title . to VL.PTitle)
-      <> (ch ^.. scale . scaleTp . _Just . to (VL.PScale . mkScale))
-      <> [VL.PSort []]
+quantitative :: Relation a => Position -> a -> BuildEncodingSpecs
+quantitative p f = VL.position p [VL.PName (fieldName f), VL.PmType (mkMeasurement $ measurement f), VL.PTitle (fieldLabel f), VL.PScale [VL.SType VL.ScLinear]]
 
-writeColorChannel ::
-  forall f m.
-  (Relation f, MonadWriter BuildEncodingSpecs m) =>
-  Maybe f ->
-  m ()
-writeColorChannel ch =
-  tell $ VL.color $
-    (ch ^.. _Just . to fieldName . to VL.MName)
-      <> (ch ^.. _Just . to (VL.MmType . mkMeasurement . measurement))
+temporal :: Relation a => Position -> a -> BuildEncodingSpecs
+temporal p f = VL.position p [VL.PName (fieldName f), VL.PmType VL.Temporal, VL.PTitle (fieldLabel f), VL.PScale [VL.SType VL.ScLinear]]
 
-writeMarkChannel ::
-  forall m.
-  (MonadWriter (Seq PropertySpec) m) =>
-  Maybe Mark ->
-  m ()
-writeMarkChannel ch = forM_ ch $ \mk -> do
-  tell $ Seq.singleton $ VL.mark (mkMark mk) []
+chartProperties :: Relation f => Chart f -> [PropertySpec]
+chartProperties = \case
+  VerticalBarChart VerticalBarChartSpec{vbcXAxis, vbcYAxis, vbcColor} ->
+    [ VL.encoding
+      $ nominal      X vbcXAxis
+      $ quantitative Y vbcYAxis
+      $ color          vbcColor
+      $ []
+    , VL.mark VL.Bar []
+    ]
+  HorizontalBarChart HorizontalBarChartSpec{hbcXAxis, hbcYAxis, hbcColor} ->
+    [ VL.encoding
+      $ nominal      Y hbcYAxis
+      $ quantitative X hbcXAxis
+      $ color          hbcColor
+      $ []
+    , VL.mark VL.Bar []
+    ]
+  Scatterplot ScatterplotSpec{spX, spY, spColor} ->
+    [ VL.encoding
+      $ quantitative X spX
+      $ quantitative Y spY
+      $ color spColor
+      $ []
+    , VL.mark VL.Point []
+    ]
+  LineChart LineChartSpec{lcX, lcY, lcColor} ->
+    [ VL.encoding
+      $ temporal X lcX
+      $ quantitative Y lcY
+      $ color lcColor
+      $ []
+    , VL.mark VL.Line []
+    ]
+  Heatmap HeatmapSpec{hsX, hsY, hsMeasure} ->
+    [ VL.encoding
+      $ nominal X hsX
+      $ nominal Y hsY
+      $ color (Just hsMeasure)
+      $ []
+    , VL.mark VL.Rect []
+    ]
+  LineChart2Axis LineChartSpec2Axis{lc2X, lc2Y, lc2Y2} ->
+    [ VL.encoding $ nominal X lc2X []
+    , VL.layer
+        [ VL.asSpec [VL.encoding $ quantitative Y lc2Y [], VL.mark VL.Line []]
+        , VL.asSpec [VL.encoding $ quantitative Y lc2Y2 [], VL.mark VL.Line []]
+        ]
+    , VL.resolve $ VL.resolution (VL.RScale [(VL.ChY, VL.Independent)]) []
+    ]
 
-mkScale :: ScaleTp -> [VL.ScaleProperty]
-mkScale = \case
-  SLinear   -> [VL.SType VL.ScLinear]
-  SLog      -> [VL.SType VL.ScLog]
-  SPow      -> [VL.SType VL.ScPow]
-  STime     -> [VL.SType VL.ScTime]
-  SUtc      -> [VL.SType VL.ScUtc]
-  SQuantile -> [VL.SType VL.ScQuantile]
-  SOrdinal  -> [VL.SType VL.ScOrdinal]
+color :: Relation f => Maybe f -> BuildEncodingSpecs
+color Nothing  = id
+color (Just k) = VL.color [ VL.MName (fieldName k)]
 
 mkMeasurement :: Measurement -> VL.Measurement
 mkMeasurement = \case
@@ -111,10 +113,3 @@ mkMeasurement = \case
   Quantitative -> VL.Quantitative
   TemporalRel  -> VL.Nominal
   TemporalAbs  -> VL.Temporal
-
-mkMark :: Mark -> VL.Mark
-mkMark = \case
-  Bar   -> VL.Bar
-  Point -> VL.Point
-  Line  -> VL.Line
-  Rect  -> VL.Rect
