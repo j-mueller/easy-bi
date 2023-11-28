@@ -27,7 +27,7 @@ import EasyBI.Server.Visualisation (FieldInMode (..), InOut (Out),
 import EasyBI.Sql.Catalog          (TypedQueryExpr)
 import EasyBI.Util.JSON            (customJsonOptions)
 import EasyBI.Util.NiceHash        (HasNiceHash (..), Hashable (..), Hashed,
-                                    NiceHashable (..), Plain, hHash)
+                                    NiceHashable (..), Plain, WithHash, hHash)
 import GHC.Generics                (Generic)
 
 {-| A cube is a big SELECT statement with all dimensions
@@ -38,7 +38,7 @@ data Cube h =
     { cQuery       :: Hashable TypedQueryExpr h
     , cName        :: String
     , cDisplayName :: String
-    , cFields      :: [FieldGroup]
+    , cFields      :: [WithHash FieldGroup]
     } deriving stock Generic
 
 instance ToJSON (Cube Plain) where

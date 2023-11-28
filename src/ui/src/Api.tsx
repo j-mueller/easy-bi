@@ -73,6 +73,15 @@ function mkInField(outField: OutField): InField {
         }
 }
 
+/**
+ * 
+ * @param fieldGroup The field group
+ * @returns All `OutField` values of the field group
+ */
+function allOutFields(fieldGroup: FieldGroup): OutField[] {
+  return ([fieldGroup.primary_field]).concat(fieldGroup.other_fields);
+}
+
 export type FieldGroup = {
   name: string;
   description?: string;
@@ -84,7 +93,7 @@ export type Cube = {
   query: QueryHash;
   name: string;
   display_name: string;
-  fields: FieldGroup[];
+  fields: WithHash<FieldGroup>[];
 }
 
 export type Archetype =
@@ -144,4 +153,4 @@ const evl: (arg: {q: QueryHash, fields: InField[] }) => Observable<any[]> = ({q,
       shareReplay(1)
     )
 
-export default { cubes, cube, vis, evl, mkInField }
+export default { cubes, cube, vis, evl, mkInField, allOutFields}
