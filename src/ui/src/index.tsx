@@ -1,10 +1,9 @@
 import React from "react";
-import ReactDOM from "react-dom";
 import { createRoot } from 'react-dom/client';
 import App from "./App";
 import Home from "./Components/Home";
 import Cubes from "./Components/Cubes";
-import { createBrowserRouter, createRoutesFromElements, Link, Route, RouterProvider, Routes } from "react-router-dom";
+import { createBrowserRouter, createRoutesFromElements, Link, Route, RouterProvider } from "react-router-dom";
 
 import './index.css';
 

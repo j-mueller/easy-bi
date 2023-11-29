@@ -4,6 +4,7 @@
 {-# LANGUAGE LambdaCase         #-}
 {-# LANGUAGE NamedFieldPuns     #-}
 {-# LANGUAGE TemplateHaskell    #-}
+{-# LANGUAGE ViewPatterns       #-}
 {-| Information about a database
 -}
 module EasyBI.Sql.Catalog
@@ -17,7 +18,7 @@ module EasyBI.Sql.Catalog
   ) where
 
 import Codec.Serialise               (Serialise)
-import Control.Lens                  (at, makeLenses, (.=))
+import Control.Lens                  (at, makeLenses, preview, (.=))
 import Control.Monad.Except          (MonadError (throwError), runExcept)
 import Control.Monad.State.Strict    (MonadState, get, runStateT)
 import Data.Aeson                    (FromJSON, ToJSON)
@@ -27,13 +28,14 @@ import Data.Maybe                    (catMaybes)
 import EasyBI.Sql.Class              (SqlFragment, runInferType)
 import EasyBI.Sql.Effects.Types      (SqlType, SqlVar (..), Tp, TyScheme, TyVar,
                                       TypeEnv (..), generalise)
+import EasyBI.Sql.Select             (SelectQuery, _Select)
 import EasyBI.Sql.Types              (InferError, defaultTypeEnv, rowFromSchema)
 import GHC.Generics                  (Generic)
-import Language.SQL.SimpleSQL.Syntax (Name, QueryExpr, Statement (..))
+import Language.SQL.SimpleSQL.Syntax (Name, Statement (..))
 
 data TypedQueryExpr =
   TypedQueryExpr
-    { teQuery :: QueryExpr
+    { teQuery :: SelectQuery
     , teType  :: TyScheme TyVar (Tp TyVar)
     }
     deriving stock (Eq, Show, Generic)
@@ -83,7 +85,7 @@ addStatement typeOverrides = \case
     let tp = rowFromSchema elements typeOverrides
     tables . at (AnIdentifier names) .= Just tp
     pure (Just tp)
-  CreateView _ names _ teQuery _ -> do
+  CreateView _ names _ (preview _Select -> Just teQuery) _ -> do
     teType <- get >>= fmap generalise . flip inferTypeCat teQuery
     views . at names .= Just TypedQueryExpr{teQuery, teType}
     pure (Just teType)

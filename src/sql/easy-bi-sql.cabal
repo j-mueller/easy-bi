@@ -38,6 +38,7 @@ library
     EasyBI.Sql.Effects.Fresh
     EasyBI.Sql.Effects.Types
     EasyBI.Sql.Orphans
+    EasyBI.Sql.Select
     EasyBI.Sql.Syntax
     EasyBI.Sql.Types
     EasyBI.Sql.Utils

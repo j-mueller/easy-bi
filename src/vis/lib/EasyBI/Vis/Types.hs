@@ -111,13 +111,9 @@ deriving instance (FromJSON f, FromJSON (k f), FromJSON (k Mark), FromJSON (k Ar
 deriving instance Show f => Show (Selections [] f)
 deriving instance Show f => Show (Selections Maybe f)
 
-instance Foldable k => Foldable (Selections k) where
-  foldMap f selections =
-    foldMap f (_WildCards selections)
-    <> foldMap f (_XAxis selections)
-    <> foldMap f (_YAxis selections)
-    <> foldMap f (_YAxis2 selections)
-    <> foldMap f (_Color selections)
+deriving instance Functor k => Functor (Selections k)
+deriving instance Foldable k => Foldable (Selections k)
+deriving instance Traversable k => Traversable (Selections k)
 
 {-| Turn a 'Selections []' object, with possible choices for
 specific channels, into a 'Selections Maybe' object, in which

@@ -5,23 +5,27 @@ module Main
   ( main
   ) where
 
-import Control.Monad               (unless)
-import Data.Foldable               (traverse_)
-import Data.Map                    qualified as Map
-import EasyBI.Server.Eval          (DbBackend (..), evalQuery,
-                                    withDbConnectionPool)
-import EasyBI.Server.Visualisation (AMeasurement (..), FieldInMode (..),
-                                    Filter (..), MeasurementAndField (..),
-                                    SortOrder (..), visualisations)
-import EasyBI.Sql.Catalog          (Catalog (..), TypedQueryExpr (..))
-import EasyBI.Sql.Construct        qualified as C
-import EasyBI.Sql.Effects.Types    (Tp (..), TyScheme (..), TyVar)
-import EasyBI.Test.Utils           (SampleDB (..), parseQuery, sampleCatalog,
-                                    withSampleDb, withTempDir)
-import EasyBI.Vis.Types            (Selections (..))
-import Test.Tasty                  (TestTree, defaultMain, testGroup)
-import Test.Tasty.HUnit            (Assertion, assertBool, assertEqual,
-                                    testCase, testCaseSteps)
+import           Control.Lens                (review)
+import           Control.Monad               (unless)
+import           Data.Foldable               (traverse_)
+import qualified Data.Map                    as Map
+import           EasyBI.Server.Eval          (DbBackend (..), evalQuery,
+                                              withDbConnectionPool)
+import           EasyBI.Server.Visualisation (Dimension (..), Field (..),
+                                              Measure (..), SortOrder (..),
+                                              visualisations)
+import           EasyBI.Sql.Catalog          (Catalog (..), TypedQueryExpr (..))
+import qualified EasyBI.Sql.Construct        as C
+import           EasyBI.Sql.Effects.Types    (Tp (..), TyScheme (..), TyVar)
+import           EasyBI.Sql.Select           (_Select)
+import           EasyBI.Test.Utils           (SampleDB (..), parseQuery,
+                                              sampleCatalog, withSampleDb,
+                                              withTempDir)
+import           EasyBI.Vis.Types            (Measurement (..), Selections (..))
+import           Test.Tasty                  (TestTree, defaultMain, testGroup)
+import           Test.Tasty.HUnit            (Assertion, assertBool,
+                                              assertEqual, testCase,
+                                              testCaseSteps)
 
 main :: IO ()
 main = defaultMain tests
@@ -38,8 +42,8 @@ tests = testGroup "server"
 
 checkVisualisations :: (String -> IO ()) -> Assertion
 checkVisualisations step = do
-  let category = FieldInMode "category" Nothing MeasurementAndField{mFieldType=ANominalMeasurement, mFilter=NoFilter} Ascending
-      price    = FieldInMode "price" Nothing MeasurementAndField{mFieldType=AQuantitativeMeasurement, mFilter=NoFilter} Ascending
+  let category = ADimension  Dimension{dimensionSqlFieldName="category", dimensionDisplayName=Nothing, dimensionType=Ordinal, dimensionDefaultSortOder=None}
+      price    = AMeasure Measure{measureSqlFieldName="price", measureDisplayName=Nothing}
       sel =
         Selections
           { _WildCards = [category, price]
@@ -73,7 +77,7 @@ checkSampleCatalog sampleDB = do
         case Map.toList _views of
           [(_, TypedQueryExpr{teQuery, teType})] -> do
             checkType sampleDB teType
-            results <- evalQuery pool teQuery
+            results <- evalQuery pool (review _Select teQuery)
             assertBool "there should be at least one result" (length results > 0)
           _ -> assertEqual "Expect 1 view" 1 (length _views)
 

@@ -10,6 +10,7 @@ module EasyBI.Sql.Class
   , sqlite
   ) where
 
+import Control.Lens                   (preview, review)
 import Control.Monad.Except           (ExceptT, MonadError (throwError),
                                        runExceptT)
 import Data.Functor.Foldable          (cataA)
@@ -20,10 +21,11 @@ import EasyBI.Sql.Effects.Annotate    (AnnotateT, MonadAnnotate, runAnnotateT)
 import EasyBI.Sql.Effects.Fresh       (FreshT, MonadFresh, evalFreshT)
 import EasyBI.Sql.Effects.Types       (Assumption, Constraint, SqlVar,
                                        Substitution, Tp, TyVar, TypeEnv)
+import EasyBI.Sql.Select              (SelectQuery, _Select)
 import EasyBI.Sql.Types               (AnnotateErr, InferError (..))
 import EasyBI.Sql.Types               qualified as Types
 import Language.SQL.SimpleSQL.Dialect (Dialect)
-import Language.SQL.SimpleSQL.Parse   (ParseError)
+import Language.SQL.SimpleSQL.Parse   (ParseError (..))
 import Language.SQL.SimpleSQL.Parse   qualified as Parse
 import Language.SQL.SimpleSQL.Pretty  qualified as Pretty
 import Language.SQL.SimpleSQL.Syntax  (QueryExpr, ScalarExpr)
@@ -49,6 +51,22 @@ instance SqlFragment QueryExpr where
   parse  = Parse.parseQueryExpr
   annotate = cataA Types.annotQueryExprF
   render = Pretty.prettyQueryExpr
+
+instance SqlFragment SelectQuery where
+  parse d fp pos str = do
+    k <- Parse.parseQueryExpr d fp pos str
+    case preview _Select k of
+      Nothing -> throwError
+        ParseError
+          { peErrorString = "Expected SELECT statement"
+          , peFilename = fp
+          , pePosition = (0, 0)
+          , peFormattedError = "Expected SELECT statement"
+          }
+      Just x -> pure x
+
+  annotate = annotate . review _Select
+  render d = render d . review _Select
 
 {-| Infer the type of a SQL fragment
 -}

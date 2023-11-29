@@ -10,7 +10,7 @@ module EasyBI.Cli
   ) where
 
 import Control.Exception             (bracket)
-import Control.Lens                  (at, use, (.=))
+import Control.Lens                  (at, preview, review, use, (.=))
 import Control.Monad                 (void, when)
 import Control.Monad.Except          (MonadError (..), liftEither, runExceptT)
 import Control.Monad.IO.Class        (MonadIO (..))
@@ -35,6 +35,7 @@ import EasyBI.Sql.Catalog            (Catalog, TypedQueryExpr (..), tables,
 import EasyBI.Sql.Class              (render, runInferType)
 import EasyBI.Sql.Dialect            qualified as Dialect
 import EasyBI.Sql.Effects.Types      (generalise)
+import EasyBI.Sql.Select             (_Select)
 import EasyBI.Sql.Types              (SqlType (STDateTime),
                                       SqlVar (AnIdentifier), TypeEnv (..),
                                       rowFromSchema)
@@ -102,12 +103,12 @@ loadSchema SchemaConfig{scSqlFile, scTimestampColumns} = do
       logInfoS ("Create table " <> show names)
       let tp = rowFromSchema elements typeOverrides
       tables . at (AnIdentifier names) .= Just tp
-    CreateView _ names _ queryExpr _ -> do
+    CreateView _ names _ (preview _Select -> Just queryExpr) _ -> do
       logInfoS ("Create view " <> show names)
       tyEnv <- TypeEnv <$> use tables
-      case runInferType (tyEnv <> defaultTypeEnv) queryExpr of
+      case runInferType (tyEnv <> defaultTypeEnv) (review _Select queryExpr) of
         Left err -> do
-          logWarnS $ "Type inference failed for '" <> render Dialect.sqlite queryExpr <> "'"
+          logWarnS $ "Type inference failed for '" <> render Dialect.sqlite (review _Select queryExpr) <> "'"
           logWarn err
         Right (_, generalise -> tp, _) -> do
           views . at names .= Just (TypedQueryExpr queryExpr tp)

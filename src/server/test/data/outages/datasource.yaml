@@ -1,39 +1,32 @@
 outages:
-  - name: Date
-    description: "The start date of the outage"
-    primary_field:
-      field_name: outage_day_of_month
-      display_name: "Day of month"
-    other_fields:
-      - field_name: outage_month
-        display_name: "Month"
-      - field_name: outage_date
-        display_name: "Date"
-      - field_name: outage_hour
-        display_name: "Hour of day"
-  - name: Operator
-    description: "Operator that reported the outage"
-    primary_field:
-      field_name: operator
-    other_fields: []
-  - name: Count
-    description: "Total number of outages"
-    primary_field:
-      field_name: count
-    other_fields: []
-  - name: City
-    description: "The city where the outage happened"
-    primary_field:
-      field_name: city
-    other_fields: []
-  - name: Duration
-    description: "Duration of the outage"
-    primary_field:
-      field_name: duration_sum
-      display_name: "Sum of duration"
-      description: "Total duration in minutes"
-    other_fields:
-      - field_name: duration_avg
-        display_name: "Average of duration"
-        description: "Average duration in minutes"
-
+  dimensions:
+    - name: Date
+      description: "The start date of the outage"
+      primary_field:
+        field_name: outage_day_of_month
+        display_name: "Day of month"
+      other_fields:
+        - field_name: outage_month
+          display_name: "Month"
+        - field_name: outage_date
+          display_name: "Date"
+        - field_name: outage_hour
+          display_name: "Hour of day"
+    - name: Operator
+      description: "Operator that reported the outage"
+      primary_field:
+        field_name: operator
+      other_fields: []
+    - name: City
+      description: "The city where the outage happened"
+      primary_field:
+        field_name: city
+      other_fields: []
+  measures:
+    - field_name: count
+      display_name: "Count of outages"
+    - field_name: duration_sum
+      display_name: "Sum of duration (minutes)"
+    - field_name: duration_avg
+      display_name: "Average of duration (minutes)"
+  display_name: Outages
