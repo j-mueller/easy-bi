@@ -92,6 +92,7 @@ test-suite easy-bi-server-test
     easy-bi-server,
     easy-bi-sql,
     easy-bi-vis,
+    lens,
     text,
     containers,
     bytestring,

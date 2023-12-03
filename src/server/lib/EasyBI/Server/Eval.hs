@@ -1,11 +1,13 @@
-{-# LANGUAGE DataKinds         #-}
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE MonoLocalBinds    #-}
-{-# LANGUAGE NamedFieldPuns    #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell   #-}
-{-# LANGUAGE ViewPatterns      #-}
+{-# LANGUAGE DataKinds          #-}
+{-# LANGUAGE DeriveAnyClass     #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE FlexibleContexts   #-}
+{-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE MonoLocalBinds     #-}
+{-# LANGUAGE NamedFieldPuns     #-}
+{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE TemplateHaskell    #-}
+{-# LANGUAGE ViewPatterns       #-}
 {-# OPTIONS_GHC -Wno-incomplete-record-updates #-} -- needed beacuse of @makeSelect@
 {-| Evaluate EasyBI queries against a database
 -}
@@ -22,23 +24,18 @@ module EasyBI.Server.Eval
   , asJSONRowsPostgres
   , asJSONRowsSqlite
     -- * Restricting queries
-  , SelectQuery (..)
-  , applyFieldModifiers
-  , fetchFirst
-  , from
-  , having
-  , offset
-  , setQuantifier
-  , where_
+  , APIQuery (..)
+  , buildQuery
+  , fieldDefinitions
   ) where
 
 import Control.Exception             (bracket)
-import Control.Lens                  (Prism', makeLenses, makeLensesFor,
-                                      preview, prism', review, (%=), (&), (.~),
+import Control.Lens                  (makeLensesFor, review, (%=), (&), (.~),
                                       (?~))
 import Control.Monad.Except          (MonadError (..))
 import Control.Monad.Reader          (MonadReader (..), runReaderT)
 import Control.Monad.State           (MonadState, execStateT, gets)
+import Data.Aeson                    (FromJSON (..), ToJSON (..))
 import Data.Bifunctor                (Bifunctor (..))
 import Data.Foldable                 (traverse_)
 import Data.Map                      (Map)
@@ -47,19 +44,20 @@ import Data.Pool                     (Pool)
 import Data.Pool                     qualified as Pool
 import Data.String                   (IsString (..))
 import Database.SQLite.Simple        qualified as Sqlite
-import EasyBI.Server.Visualisation   (AMeasurement (..), FieldInMode (..),
-                                      Filter (..), InOut (..),
-                                      MeasurementAndField (..), SortOrder (..),
-                                      SqlFieldName (..), fromSqlName)
+import EasyBI.Server.Visualisation   (APIQuery (..), Filter (..),
+                                      SortOrder (..), SqlFieldName (..),
+                                      fromSqlName)
 import EasyBI.Sql.Dialect            qualified as Dialect
+import EasyBI.Sql.Select             (SelectQuery (..), _Select, fetchFirst,
+                                      groupBy, orderBy, selectList_, where_)
 import EasyBI.Util.JSON              (WrappedObject (..))
+import GHC.Generics                  (Generic)
 import Language.SQL.SimpleSQL.Pretty qualified as Pretty
 import Language.SQL.SimpleSQL.Syntax (Alias (..), Direction (..),
                                       GroupingExpr (..), Name (..),
                                       NullsOrder (..), QueryExpr (..),
                                       ScalarExpr (App, BinOp, Iden, Star, StringLit),
-                                      SetQuantifier, SortSpec (..),
-                                      TableRef (..), makeSelect)
+                                      SortSpec (..), TableRef (..), makeSelect)
 import Language.SQL.SimpleSQL.Syntax qualified as SQL
 
 data DbBackend
@@ -158,50 +156,6 @@ selectList = \case
   _                       -> []
 
 
-data SelectQuery =
-  SelectQuery
-    { _setQuantifier :: SetQuantifier
-    , _selectList_   :: [(ScalarExpr, Maybe Name)]
-    , _from          :: [TableRef]
-    , _where_        :: Maybe ScalarExpr
-    , _groupBy       :: [GroupingExpr]
-    , _having        :: Maybe ScalarExpr
-    , _orderBy       :: [SortSpec]
-    , _offset        :: Maybe ScalarExpr
-    , _fetchFirst    :: Maybe ScalarExpr
-    }
-
-makeLenses ''SelectQuery
-
-_Select :: Prism' QueryExpr SelectQuery
-_Select = prism' from_ to_ where
-  to_ Select{qeSetQuantifier, qeSelectList, qeFrom, qeWhere, qeGroupBy, qeHaving, qeOrderBy, qeOffset, qeFetchFirst} =
-    Just
-      SelectQuery
-        { _setQuantifier = qeSetQuantifier
-        , _selectList_   = qeSelectList
-        , _from          = qeFrom
-        , _where_        = qeWhere
-        , _groupBy       = qeGroupBy
-        , _having        = qeHaving
-        , _orderBy       = qeOrderBy
-        , _offset        = qeOffset
-        , _fetchFirst    = qeFetchFirst
-        }
-  to_ _ = Nothing
-  from_ SelectQuery{_setQuantifier, _selectList_, _from, _where_, _groupBy, _having, _orderBy, _offset, _fetchFirst} =
-          Select
-            { qeSetQuantifier = _setQuantifier
-            , qeSelectList    = _selectList_
-            , qeFrom          = _from
-            , qeWhere         = _where_
-            , qeGroupBy       = _groupBy
-            , qeHaving        = _having
-            , qeOrderBy       = _orderBy
-            , qeOffset        = _offset
-            , qeFetchFirst    = _fetchFirst
-            }
-
 {-| Modify the query to return a list of JSON objects. Uses the postgres-specific
 @row_to_json@ operator.
 -}
@@ -243,41 +197,50 @@ mkQuery BuildQueryState{qsSelect, qsWith} =
 
 makeLensesFor
   [ ("qsSelect", "selectQuery")
-  -- , ("qsWith", "withQueries")
   ] ''BuildQueryState
-
-{-| Get an alias that can be used in a 'with' statement
--}
--- freshAlias :: MonadState BuildQueryState m => m (Alias, Name)
--- freshAlias = do
---   l <- gets (length . qsWith)
---   let nm = Name Nothing ("view_" <> show l)
---   pure (Alias nm Nothing, nm)
 
 {-| Add a scalar expression to a filter statement.
 -}
-addFilter :: ScalarExpr -> Maybe ScalarExpr -> ScalarExpr
-addFilter flt = \case
+addFilterExp :: ScalarExpr -> Maybe ScalarExpr -> ScalarExpr
+addFilterExp flt = \case
   Nothing       -> flt
   Just otherFlt -> BinOp flt [Name Nothing "AND"] otherFlt
 
-{-| Add a single @FieldInMode@ to the query by
-1. Adding the field's definition to the SELECT list
-2. Adding a GROUP BY clause for non-quantitative fields
-3. Adding a view with alias if a filter has been specified for the field
+{-| Add a @GROUP BY@ clause to the query and add the field to the @SELECT@ list
 -}
-addFieldToQuery :: (MonadReader (Map SqlFieldName (ScalarExpr, Name)) m, MonadError QueryBuildError m, MonadState BuildQueryState m) => FieldInMode In -> m ()
-addFieldToQuery FieldInMode{sqlFieldName, sortOrder, fieldOptions=MeasurementAndField{mFieldType, mFilter}} = do
-  defs <- ask
-  (scalarExpr, fieldName) <- maybe (throwError $ FieldNotFound sqlFieldName) pure (Map.lookup sqlFieldName defs)
-  selectQuery . selectList_ %= (:) (scalarExpr, Just fieldName)
+addSplit :: (MonadReader (Map SqlFieldName (ScalarExpr, Name)) m, MonadError QueryBuildError m, MonadState BuildQueryState m) => SqlFieldName -> m ()
+addSplit sqlFieldName = do
+  (scalarExpr, fieldName) <- findFieldDef sqlFieldName
+  addSelectToQuery scalarExpr fieldName
+  selectQuery . groupBy %= (:) (SimpleGroup scalarExpr)
+
+addMeasure :: (MonadReader (Map SqlFieldName (ScalarExpr, Name)) m, MonadError QueryBuildError m, MonadState BuildQueryState m) => SqlFieldName -> m ()
+addMeasure sqlFieldName = findFieldDef sqlFieldName >>= uncurry addSelectToQuery
+
+{-| Add an @ORDER BY@ clause for the field
+-}
+addSortOrder :: (MonadReader (Map SqlFieldName (ScalarExpr, Name)) m, MonadError QueryBuildError m, MonadState BuildQueryState m) => SqlFieldName -> SortOrder -> m ()
+addSortOrder sqlFieldName sortOrder = do
+  (scalarExpr, _) <- findFieldDef sqlFieldName
   traverse_ (\o -> selectQuery . orderBy %= (:) (SortSpec scalarExpr o NullsOrderDefault)) (mapDir sortOrder)
-  case mFieldType of
-    AQuantitativeMeasurement -> pure ()
-    _                        -> selectQuery . groupBy %= (:) (SimpleGroup scalarExpr)
-  case mFilter of
-    NominalTopN n -> do
-      -- (alias, name) <- freshAlias
+
+findFieldDef :: (MonadReader (Map SqlFieldName (ScalarExpr, Name)) m, MonadError QueryBuildError m) => SqlFieldName -> m (ScalarExpr, Name)
+findFieldDef sqlFieldName = do
+  defs <- ask
+  maybe (throwError $ FieldNotFound sqlFieldName) pure (Map.lookup sqlFieldName defs)
+
+{-| Add an entry to the @SELECT@ list
+-}
+addSelectToQuery :: (MonadState BuildQueryState m) => ScalarExpr -> Name -> m ()
+addSelectToQuery scalarExpr fieldName =  selectQuery . selectList_ %= (:) (scalarExpr, Just fieldName)
+
+{-| Add a @WHERE@ clause to the query
+-}
+addFilter :: (MonadReader (Map SqlFieldName (ScalarExpr, Name)) m, MonadError QueryBuildError m, MonadState BuildQueryState m) => SqlFieldName -> Filter -> m ()
+addFilter sqlFieldName flt = do
+  (scalarExpr, _) <- findFieldDef sqlFieldName
+  case flt of
+    TopN n -> do
       orig <- gets qsOriginalSelect
       let limitQry = orig
                       & groupBy .~ [SimpleGroup scalarExpr]
@@ -285,21 +248,21 @@ addFieldToQuery FieldInMode{sqlFieldName, sortOrder, fieldOptions=MeasurementAnd
                       & fetchFirst ?~ SQL.NumLit (show n)
                       & selectList_ .~ [(scalarExpr, Nothing)]
       let stmt = SQL.In True scalarExpr (SQL.InQueryExpr $ review _Select limitQry)
-      selectQuery . where_ %= Just . addFilter stmt
-      -- withQueries %= (:) (alias, limitQry)
-    _             -> do
-      -- In Bool ScalarExpr InPredValue
-      pure () -- FIXME: NominalInclude, NominalExclude
+      selectQuery . where_ %= Just . addFilterExp stmt
+    _             -> pure ()
 
 {-| Build the query by inserting the given field definitions into the
 original SQL query
 -}
-applyFieldModifiers :: MonadError QueryBuildError m => [FieldInMode In] -> QueryExpr -> m QueryExpr
-applyFieldModifiers fields (preview _Select -> Just k) = do
+buildQuery :: MonadError QueryBuildError m => APIQuery -> SelectQuery -> m QueryExpr
+buildQuery APIQuery{apiQuerySplits, apiQueryMeasures, apiQueryFilters, apiQuerySortOrder} k = do
   defs <- fieldDefinitions k
   let initialQ = k & selectList_ .~ mempty & groupBy .~ mempty
-  fmap mkQuery $ flip runReaderT defs $ flip execStateT (buildQueryState initialQ) $ flip traverse fields addFieldToQuery
-applyFieldModifiers _ _ = throwError UnexpectedQueryType
+  fmap mkQuery $ flip runReaderT defs $ flip execStateT (buildQueryState initialQ) $ do
+    traverse_ addSplit apiQuerySplits
+    traverse_ addMeasure apiQueryMeasures
+    traverse_ (uncurry addFilter) apiQueryFilters
+    traverse_ (uncurry addSortOrder) apiQuerySortOrder
 
 mapDir :: SortOrder -> Maybe Direction
 mapDir = \case
@@ -311,7 +274,8 @@ data QueryBuildError =
   FieldNotFound SqlFieldName
   | UnnamedFieldInCubeDefinition -- ^ Found an unnamed field
   | UnexpectedQueryType -- ^ Exepected select, found something else
-    deriving Show
+    deriving stock (Show, Generic)
+    deriving anyclass (ToJSON, FromJSON)
 
 {-| The field definitions of the original SQL query that defines the cube
 -}

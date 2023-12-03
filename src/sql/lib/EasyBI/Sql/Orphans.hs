@@ -9,7 +9,9 @@ module EasyBI.Sql.Orphans
 import Codec.Serialise               (Serialise (..))
 import Data.Aeson                    (FromJSON (..), FromJSONKey, ToJSON (..),
                                       ToJSONKey)
-import Language.SQL.SimpleSQL.Syntax (Name (..), QueryExpr, TypeName)
+import Language.SQL.SimpleSQL.Syntax (GroupingExpr, Name (..), QueryExpr,
+                                      ScalarExpr, SetQuantifier, SortSpec,
+                                      TableRef, TypeName)
 import Text.Read                     (readMaybe)
 
 deriving stock instance Ord Name
@@ -35,6 +37,36 @@ deriving via (ReadShow QueryExpr) instance Serialise QueryExpr
 deriving via (ReadShow QueryExpr) instance ToJSON QueryExpr
 
 deriving via (ReadShow QueryExpr) instance FromJSON QueryExpr
+
+deriving via (ReadShow SetQuantifier) instance Serialise SetQuantifier
+
+deriving via (ReadShow SetQuantifier) instance ToJSON SetQuantifier
+
+deriving via (ReadShow SetQuantifier) instance FromJSON SetQuantifier
+
+deriving via (ReadShow ScalarExpr) instance Serialise ScalarExpr
+
+deriving via (ReadShow ScalarExpr) instance ToJSON ScalarExpr
+
+deriving via (ReadShow ScalarExpr) instance FromJSON ScalarExpr
+
+deriving via (ReadShow TableRef) instance Serialise TableRef
+
+deriving via (ReadShow TableRef) instance ToJSON TableRef
+
+deriving via (ReadShow TableRef) instance FromJSON TableRef
+
+deriving via (ReadShow GroupingExpr) instance Serialise GroupingExpr
+
+deriving via (ReadShow GroupingExpr) instance ToJSON GroupingExpr
+
+deriving via (ReadShow GroupingExpr) instance FromJSON GroupingExpr
+
+deriving via (ReadShow SortSpec) instance Serialise SortSpec
+
+deriving via (ReadShow SortSpec) instance ToJSON SortSpec
+
+deriving via (ReadShow SortSpec) instance FromJSON SortSpec
 
 {-| Deriving serialise via read/show instance
 -}

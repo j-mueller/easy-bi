@@ -11,24 +11,35 @@
 {-# LANGUAGE UndecidableInstances #-}
 module EasyBI.Server.Cube
   ( Cube (..)
-  , FieldGroup (..)
+  , CubeName (..)
+  , DimensionGroup (..)
+  , fields
   , hashCube
   , queryExpr
-  , singletonFieldGroup
+  , singletonDimensionGroup
   ) where
 
 import Codec.Serialise             (Serialise (..))
-import Data.Aeson                  (FromJSON (..), ToJSON (..))
+import Data.Aeson                  (FromJSON (..), FromJSONKey, ToJSON (..),
+                                    ToJSONKey)
 import Data.Aeson                  qualified as JSON
+import Data.Map                    (Map)
+import Data.Map                    qualified as Map
 import Data.Text                   (Text)
 import Data.Text                   qualified as Text
-import EasyBI.Server.Visualisation (FieldInMode (..), InOut (Out),
-                                    SqlFieldName (..))
+import EasyBI.Server.Visualisation (Dimension (..), Field (..), Measure,
+                                    SqlFieldName (..), Visualisation,
+                                    sqlFieldName)
 import EasyBI.Sql.Catalog          (TypedQueryExpr)
 import EasyBI.Util.JSON            (customJsonOptions)
 import EasyBI.Util.NiceHash        (HasNiceHash (..), Hashable (..), Hashed,
-                                    NiceHashable (..), Plain, WithHash, hHash)
+                                    NiceHash, NiceHashable (..), Plain,
+                                    WithHash, hHash)
 import GHC.Generics                (Generic)
+
+newtype CubeName = CubeName String
+  deriving stock (Eq, Ord, Show)
+  deriving newtype (ToJSON, ToJSONKey, FromJSON, FromJSONKey, Serialise)
 
 {-| A cube is a big SELECT statement with all dimensions
 and aggregations
@@ -36,10 +47,14 @@ and aggregations
 data Cube h =
   Cube
     { cQuery       :: Hashable TypedQueryExpr h
-    , cName        :: String
+    , cName        :: CubeName
     , cDisplayName :: String
-    , cFields      :: [WithHash FieldGroup]
+    , cDimensions  :: [WithHash DimensionGroup]
+    , cMeasures    :: [WithHash Measure]
     } deriving stock Generic
+
+instance HasNiceHash (Visualisation (NiceHash (Cube Hashed))) where
+  type Name (Visualisation (NiceHash (Cube Hashed))) = "vis"
 
 instance ToJSON (Cube Plain) where
   toJSON = JSON.genericToJSON (customJsonOptions 1)
@@ -67,23 +82,37 @@ queryExpr Cube{cQuery} = let HPlain a = cQuery in a
 instance HasNiceHash (Cube Hashed) where
   type Name (Cube Hashed) = "cube"
 
-data FieldGroup =
-  FieldGroup
-    { fgName         :: Text
-    , fgDescription  :: Maybe Text
-    , fgPrimaryField :: FieldInMode Out
-    , fgOtherFields  :: [FieldInMode Out]
+data DimensionGroup =
+  DimensionGroup
+    { dgName             :: Text
+    , dgDescription      :: Maybe Text
+    , dgPrimaryDimension :: Dimension
+    , dgOtherDimensions  :: [Dimension]
     } deriving stock (Eq, Generic)
       deriving anyclass (Serialise)
-      deriving HasNiceHash via (NiceHashable "field_group" FieldGroup)
+      deriving HasNiceHash via (NiceHashable "dimension_group" DimensionGroup)
 
-instance ToJSON FieldGroup where
+instance ToJSON DimensionGroup where
   toJSON = JSON.genericToJSON (customJsonOptions 2)
   toEncoding = JSON.genericToEncoding (customJsonOptions 2)
 
-instance FromJSON FieldGroup where
+instance FromJSON DimensionGroup where
   parseJSON = JSON.genericParseJSON (customJsonOptions 2)
 
 -- | A field group with a single field
-singletonFieldGroup :: FieldInMode Out -> FieldGroup
-singletonFieldGroup f = FieldGroup (Text.pack $ getSqlFieldName $ sqlFieldName f) Nothing f []
+singletonDimensionGroup :: Dimension -> DimensionGroup
+singletonDimensionGroup f =
+  DimensionGroup
+    (Text.pack $ getSqlFieldName $ dimensionSqlFieldName f)
+    Nothing
+    f
+    []
+
+-- | The fields that have been defined for the cube
+fields :: Cube h -> Map SqlFieldName Field
+fields Cube{cDimensions, cMeasures} =
+  let withKey f@Dimension{dimensionSqlFieldName} = (dimensionSqlFieldName, ADimension f)
+      mkMap DimensionGroup{dgPrimaryDimension, dgOtherDimensions} =
+        Map.fromList $ fmap withKey (dgPrimaryDimension : dgOtherDimensions)
+      mkField f = (sqlFieldName f, f)
+  in Map.unions $ (Map.fromList $ fmap (mkField . AMeasure . snd) cMeasures) : (mkMap . snd <$> cDimensions)

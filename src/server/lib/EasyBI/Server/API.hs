@@ -5,8 +5,8 @@ module EasyBI.Server.API
   ) where
 
 import EasyBI.Server.Cube          (Cube)
-import EasyBI.Server.Visualisation (FieldInMode, InOut (..), Visualisation)
-import EasyBI.Sql.Catalog          (TypedQueryExpr)
+import EasyBI.Server.Eval          (APIQuery)
+import EasyBI.Server.Visualisation (SqlFieldName, Visualisation)
 import EasyBI.Util.JSON            (WrappedObject)
 import EasyBI.Util.NiceHash        (Hashed, NiceHash, WithHash)
 import EasyBI.Vis.Types            (Selections)
@@ -18,6 +18,6 @@ type API =
     "health" :> Get '[JSON] ()
     :<|> "cubes" :> Get '[JSON] [WithHash (Cube Hashed)]
     :<|> "cubes" :> Capture "cube"  (NiceHash (Cube Hashed))  :> Get '[JSON] (Cube Hashed)
-    :<|> "vis"   :> Capture "query" (NiceHash TypedQueryExpr) :> ReqBody '[JSON] (Selections [] (FieldInMode In)) :> Post '[JSON] [WithHash (Visualisation (NiceHash TypedQueryExpr))]
-    :<|> "eval"  :> Capture "query" (NiceHash TypedQueryExpr) :> ReqBody '[JSON] [FieldInMode In] :> Post '[JSON] [WrappedObject]
+    :<|> "vis"   :> Capture "query" (NiceHash (Cube Hashed)) :> ReqBody '[JSON] (Selections [] SqlFieldName) :> Post '[JSON] [WithHash (Visualisation (NiceHash (Cube Hashed)))]
+    :<|> "eval"  :> Capture "query" (NiceHash (Cube Hashed)) :> ReqBody '[JSON] APIQuery :> Post '[JSON] [WrappedObject]
   )
